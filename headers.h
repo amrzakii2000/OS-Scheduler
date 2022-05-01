@@ -111,52 +111,50 @@ struct Queue *createQueue()
 
 void enqueue(struct Queue *q, struct Process *p)
 {
-    struct Process *front = q->front;
-    struct Process *rear = q->rear;
-
-    if (front == NULL)
+    p->next = NULL;
+    if (q->front == NULL)
     {
-        front = rear = p;
+        q->front = q->rear = p;
     }
     else
     {
-        rear->next = p;
-        rear = p;
+        if (q->front == q->rear)
+        {
+            q->front->next = p;
+        }
+        q->rear->next = p;
+        q->rear = p;
     }
 }
 
 struct Process *dequeue(struct Queue *q)
 {
-    struct Process *front = q->front;
-    struct Process *rear = q->rear;
-    if (front == NULL)
+    if (q->front == NULL)
     {
         return NULL;
     }
     else
     {
-        struct Process *p = front;
-        front = front->next;
+        struct Process *p = q->front;
+        q->front = q->front->next;
         return p;
     }
 }
 
 void insertByPriority(struct Queue *q, struct Process *p)
 {
-    struct Process *front = q->front;
-    struct Process *rear = q->rear;
-
-    if (front == NULL)
+    if (q->front == NULL)
     {
-        front = rear = p;
+        p->next = NULL;
+        q->front = q->rear = p;
     }
     else
     {
-        struct Process *temp = front;
-        if (p->priority < temp->priority)
+        struct Process *temp = q->front;
+        if (temp->priority > p->priority)
         {
             p->next = temp;
-            front = p;
+            q->front = p;
         }
         else
         {
@@ -166,26 +164,28 @@ void insertByPriority(struct Queue *q, struct Process *p)
             }
             p->next = temp->next;
             temp->next = p;
+            if (temp == q->rear)
+            {
+                q->rear = p;
+            }
         }
     }
 }
 
 void insertByRuntime(struct Queue *q, struct Process *p)
 {
-    struct Process *front = q->front;
-    struct Process *rear = q->rear;
-
-    if (front == NULL)
+    if (q->front == NULL)
     {
-        front = rear = p;
+        p->next = NULL;
+        q->front = q->rear = p;
     }
     else
     {
-        struct Process *temp = front;
-        if (p->runTime < temp->runTime)
+        struct Process *temp = q->front;
+        if (temp->runTime > p->runTime)
         {
             p->next = temp;
-            front = p;
+            q->front = p;
         }
         else
         {
@@ -195,6 +195,15 @@ void insertByRuntime(struct Queue *q, struct Process *p)
             }
             p->next = temp->next;
             temp->next = p;
+            if (temp == q->rear)
+            {
+                q->rear = p;
+            }
         }
     }
+}
+
+bool isEmpty(struct Queue *q)
+{
+    return q->front == NULL;
 }
