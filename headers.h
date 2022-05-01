@@ -60,3 +60,162 @@ void destroyClk(bool terminateAll)
         killpg(getpgrp(), SIGINT);
     }
 }
+
+enum ProccessState 
+{
+    ARRIVED,
+    STARTED,
+    RESUMED,
+    STOPPED,
+    FINISHED
+}
+
+struct Process 
+{
+    int id;
+    int priority;
+    int runTime;
+    int arrivalTime;
+    int waitTime;
+    int finishTime;
+    int remainingTime;
+    enum ProcessState state; 
+    Process* next;
+
+    Process(int id, int priority, int runTime, int arrivalTime)
+    {
+        this->id = id;
+        this->priority = priority;
+        this->runTime = this->remainingTime = runTime;
+        this->arrivalTime = arrivalTime;
+        this->waitTime = 0;
+        this->finishTime = 0;
+        this->state = ProcessState::ARRIVED;
+        this->next = NULL;
+    }
+}
+
+struct Queue
+{
+    Process* front;
+    Process* rear;
+    
+    Queue()
+    {
+        front = rear = NULL;
+    }
+
+    void enqueue(Process* p)
+    {
+        if (front == NULL)
+        {
+            front = rear = p;
+        }
+        else
+        {
+            rear->next = p;
+            rear = p;
+        }
+    }
+
+    Process* dequeue()
+    {
+        if (front == NULL)
+        {
+            return NULL;
+        }
+        else
+        {
+            Process* p = front;
+            front = front->next;
+            return p;
+        }
+    }
+
+    bool isEmpty()
+    {
+        return front == NULL;
+    }
+}
+
+struct PriorityQueue
+{
+    Process* front;
+    Process* rear;
+    
+    PriorityQueue()
+    {
+        front = rear = NULL;
+    }
+
+    void insertByPriority(Process* p)
+    {
+        if (front == NULL)
+        {
+            front = rear = p;
+        }
+        else
+        {
+            Process* temp = front;
+            if (p->priority < temp->priority)
+            {
+                p->next = temp;
+                front = p;
+            }
+            else
+            {
+                while (temp->next != NULL && temp->next->priority < p->priority)
+                {
+                    temp = temp->next;
+                }
+                p->next = temp->next;
+                temp->next = p;
+            }
+        }
+    }
+    
+    void insertByRuntime(Process* p)
+    {
+        if (front == NULL)
+        {
+            front = rear = p;
+        }
+        else
+        {
+            Process* temp = front;
+            if (p->runTime < temp->runTime)
+            {
+                p->next = temp;
+                front = p;
+            }
+            else
+            {
+                while (temp->next != NULL && temp->next->runTime < p->runTime)
+                {
+                    temp = temp->next;
+                }
+                p->next = temp->next;
+                temp->next = p;
+            }
+        }
+    }
+    
+    Process* dequeue()
+    {
+        if (front == NULL)
+        {
+            return NULL;
+        }
+        else
+        {
+            Process* p = front;
+            front = front->next;
+            return p;
+        }
+    }
+
+    bool isEmpty()
+    {
+        return front == NULL;
+    }
+}
