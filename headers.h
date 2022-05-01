@@ -1,4 +1,3 @@
-#include <stdio.h> //if you don't use scanf/printf change this include
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/file.h>
@@ -7,7 +6,6 @@
 #include <sys/sem.h>
 #include <sys/msg.h>
 #include <sys/wait.h>
-#include <stdlib.h>
 #include <unistd.h>
 #include <signal.h>
 
@@ -18,7 +16,7 @@ typedef short bool;
 #define SHKEY 300
 
 ///==============================
-//don't mess with this variable//
+// don't mess with this variable//
 int *shmaddr; //
 //===============================
 
@@ -30,13 +28,13 @@ int getClk()
 /*
  * All processes call this function at the beginning to establish communication between them and the clock module.
  * Again, remember that the clock is only emulation!
-*/
+ */
 void initClk()
 {
     int shmid = shmget(SHKEY, 4, 0444);
     while ((int)shmid == -1)
     {
-        //Make sure that the clock exists
+        // Make sure that the clock exists
         printf("Wait! The clock not initialized yet!\n");
         sleep(1);
         shmid = shmget(SHKEY, 4, 0444);
@@ -50,7 +48,7 @@ void initClk()
  * Again, Remember that the clock is only emulation!
  * Input: terminateAll: a flag to indicate whether that this is the end of simulation.
  *                      It terminates the whole system and releases resources.
-*/
+ */
 
 void destroyClk(bool terminateAll)
 {
@@ -61,16 +59,16 @@ void destroyClk(bool terminateAll)
     }
 }
 
-enum ProccessState 
+enum ProccessState
 {
     ARRIVED,
     STARTED,
     RESUMED,
     STOPPED,
     FINISHED
-}
+};
 
-struct Process 
+struct Process
 {
     int id;
     int priority;
@@ -79,143 +77,124 @@ struct Process
     int waitTime;
     int finishTime;
     int remainingTime;
-    enum ProcessState state; 
-    Process* next;
+    enum ProccessState state;
+    struct Process *next;
+};
 
-    Process(int id, int priority, int runTime, int arrivalTime)
-    {
-        this->id = id;
-        this->priority = priority;
-        this->runTime = this->remainingTime = runTime;
-        this->arrivalTime = arrivalTime;
-        this->waitTime = 0;
-        this->finishTime = 0;
-        this->state = ProcessState::ARRIVED;
-        this->next = NULL;
-    }
+struct Process *createProcess(int id, int priority, int runTime, int arrivalTime)
+{
+    struct Process *p = malloc(sizeof *p);
+    p->id = id;
+    p->priority = priority;
+    p->runTime = p->remainingTime = runTime;
+    p->arrivalTime = arrivalTime;
+    p->waitTime = 0;
+    p->finishTime = 0;
+    p->state = ARRIVED;
+    p->next = NULL;
+
+    return p;
 }
 
 struct Queue
 {
-    Process* front;
-    Process* rear;
-    
-    Queue()
-    {
-        front = rear = NULL;
-    }
+    struct Process *front;
+    struct Process *rear;
+};
 
-    void enqueue(Process* p)
-    {
-        if (front == NULL)
-        {
-            front = rear = p;
-        }
-        else
-        {
-            rear->next = p;
-            rear = p;
-        }
-    }
+struct Queue *createQueue()
+{
+    struct Queue *q = (struct Queue *)malloc(sizeof(struct Queue));
+    q->front = q->rear = NULL;
+    return q;
+}
 
-    Process* dequeue()
-    {
-        if (front == NULL)
-        {
-            return NULL;
-        }
-        else
-        {
-            Process* p = front;
-            front = front->next;
-            return p;
-        }
-    }
+void enqueue(struct Queue *q, struct Process *p)
+{
+    struct Process *front = q->front;
+    struct Process *rear = q->rear;
 
-    bool isEmpty()
+    if (front == NULL)
     {
-        return front == NULL;
+        front = rear = p;
+    }
+    else
+    {
+        rear->next = p;
+        rear = p;
     }
 }
 
-struct PriorityQueue
+struct Process *dequeue(struct Queue *q)
 {
-    Process* front;
-    Process* rear;
-    
-    PriorityQueue()
+    struct Process *front = q->front;
+    struct Process *rear = q->rear;
+    if (front == NULL)
     {
-        front = rear = NULL;
+        return NULL;
     }
+    else
+    {
+        struct Process *p = front;
+        front = front->next;
+        return p;
+    }
+}
 
-    void insertByPriority(Process* p)
-    {
-        if (front == NULL)
-        {
-            front = rear = p;
-        }
-        else
-        {
-            Process* temp = front;
-            if (p->priority < temp->priority)
-            {
-                p->next = temp;
-                front = p;
-            }
-            else
-            {
-                while (temp->next != NULL && temp->next->priority < p->priority)
-                {
-                    temp = temp->next;
-                }
-                p->next = temp->next;
-                temp->next = p;
-            }
-        }
-    }
-    
-    void insertByRuntime(Process* p)
-    {
-        if (front == NULL)
-        {
-            front = rear = p;
-        }
-        else
-        {
-            Process* temp = front;
-            if (p->runTime < temp->runTime)
-            {
-                p->next = temp;
-                front = p;
-            }
-            else
-            {
-                while (temp->next != NULL && temp->next->runTime < p->runTime)
-                {
-                    temp = temp->next;
-                }
-                p->next = temp->next;
-                temp->next = p;
-            }
-        }
-    }
-    
-    Process* dequeue()
-    {
-        if (front == NULL)
-        {
-            return NULL;
-        }
-        else
-        {
-            Process* p = front;
-            front = front->next;
-            return p;
-        }
-    }
+void insertByPriority(struct Queue *q, struct Process *p)
+{
+    struct Process *front = q->front;
+    struct Process *rear = q->rear;
 
-    bool isEmpty()
+    if (front == NULL)
     {
-        return front == NULL;
+        front = rear = p;
+    }
+    else
+    {
+        struct Process *temp = front;
+        if (p->priority < temp->priority)
+        {
+            p->next = temp;
+            front = p;
+        }
+        else
+        {
+            while (temp->next != NULL && temp->next->priority < p->priority)
+            {
+                temp = temp->next;
+            }
+            p->next = temp->next;
+            temp->next = p;
+        }
+    }
+}
+
+void insertByRuntime(struct Queue *q, struct Process *p)
+{
+    struct Process *front = q->front;
+    struct Process *rear = q->rear;
+
+    if (front == NULL)
+    {
+        front = rear = p;
+    }
+    else
+    {
+        struct Process *temp = front;
+        if (p->runTime < temp->runTime)
+        {
+            p->next = temp;
+            front = p;
+        }
+        else
+        {
+            while (temp->next != NULL && temp->next->runTime < p->runTime)
+            {
+                temp = temp->next;
+            }
+            p->next = temp->next;
+            temp->next = p;
+        }
     }
 }
