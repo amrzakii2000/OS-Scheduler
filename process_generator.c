@@ -17,6 +17,7 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
+    struct Queue* processesQueue = createQueue();
     // read lines of input file
     char *line = NULL;
     size_t len = 0;
@@ -30,23 +31,43 @@ int main(int argc, char *argv[])
 
         // read process
         struct Process *process = readProcess(line);
+        enqueue(processesQueue, process);
     }
 
     // 2. Read the chosen scheduling algorithm and its parameters, if there are any from the argument list.
     int algorithm = -1;
     int quantum = 2;
     readOptions(&algorithm, &quantum, argc, argv);
-    printf("Algorithm: %d\n", algorithm);
-    printf("Quantum: %d\n", quantum);
+
     // 3. Initiate and create the scheduler and clock processes.
-    // 4. Use this function after creating the clock process to initialize clock.
-    initClk();
+    int clockPid = fork();
+    if (clockPid == -1)
+    {
+        printf("Error in creating clock process\n");
+        exit(1);
+    }
+    else if (clockPid == 0)
+    {
+       execl("./clk.out", "./clk.out", NULL);
+    }
+    int schedulerPid = fork();
+    if (schedulerPid == -1)
+    {
+        printf("Error in creating scheduler process\n");
+        exit(1);
+    }
+    else if (schedulerPid == 0)
+    {
+        execl("./scheduler.out", "./scheduler.out", NULL);
+    }
     // To get time use this function.
     int x = getClk();
     printf("Current Time is %d\n", x);
     // TODO Generation Main Loop
     // 5. Create a data structure for processes and provide it with its parameters.
     // 6. Send the information to the scheduler at the appropriate time.
+    initClk();
+    
     // 7. Clear clock resources
     destroyClk(true);
 }
