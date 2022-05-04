@@ -64,10 +64,22 @@ int main(int argc, char *argv[])
     // To get time use this function.
     initClk();
     int x = getClk();
+    sendInt(quantum);
+    sendInt(algorithm);
     printf("Current Time is %d\n", x);
+
     // TODO Generation Main Loop
     // 5. Create a data structure for processes and provide it with its parameters.
     // 6. Send the information to the scheduler at the appropriate time.
+    while (!isEmpty(processesQueue))
+    {
+        int currentTime = getClk();
+        while (currentTime - x == processesQueue->front->arrivalTime)
+        {
+            struct Process *process = dequeue(processesQueue);
+            sendProcess(process);
+        }
+    }
 
     // 7. Clear clock resources
     destroyClk(true);
