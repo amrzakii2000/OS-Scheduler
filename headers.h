@@ -1,3 +1,5 @@
+#include<stdio.h>
+#include<stdlib.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/file.h>
@@ -83,7 +85,7 @@ struct Process
 
 struct Process *createProcess(int id, int priority, int runTime, int arrivalTime)
 {
-    struct Process *p = malloc(sizeof *p);
+    struct Process *p = (struct Process *)malloc(sizeof(struct Process));
     p->id = id;
     p->priority = priority;
     p->runTime = p->remainingTime = runTime;
@@ -200,6 +202,18 @@ void insertByRuntime(struct Queue *q, struct Process *p)
                 q->rear = p;
             }
         }
+    }
+}
+
+struct Process *peek(struct Queue *q)
+{
+    if (q->front == NULL)
+    {
+        return NULL;
+    }
+    else
+    {
+        return q->front;
     }
 }
 
