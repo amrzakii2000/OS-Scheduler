@@ -8,7 +8,8 @@ struct Process *readProcess(char *);
 int main(int argc, char *argv[])
 {
     signal(SIGINT, clearResources);
-    // TODO Initialization
+    initClk();
+
     // 1. Read the input files.
     FILE *input = fopen(argv[1], "r");
     if (input == NULL)
@@ -66,7 +67,6 @@ int main(int argc, char *argv[])
     // TODO Generation Main Loop
     // 5. Create a data structure for processes and provide it with its parameters.
     // 6. Send the information to the scheduler at the appropriate time.
-    initClk();
     
     // 7. Clear clock resources
     destroyClk(true);
