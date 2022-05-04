@@ -2,13 +2,12 @@
 #include <string.h>
 
 void clearResources(int);
-void readOptions(int*, int*, int, char**);
+void readOptions(int *, int *, int, char **);
 struct Process *readProcess(char *);
 
 int main(int argc, char *argv[])
 {
     signal(SIGINT, clearResources);
-    initClk();
 
     // 1. Read the input files.
     FILE *input = fopen(argv[1], "r");
@@ -18,7 +17,7 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    struct Queue* processesQueue = createQueue();
+    struct Queue *processesQueue = createQueue();
     // read lines of input file
     char *line = NULL;
     size_t len = 0;
@@ -49,7 +48,8 @@ int main(int argc, char *argv[])
     }
     else if (clockPid == 0)
     {
-       execl("./clk.out", "./clk.out", NULL);
+        printf("Creating clock process\n");
+        execl("./clk.out", "./clk.out", NULL);
     }
     int schedulerPid = fork();
     if (schedulerPid == -1)
@@ -62,23 +62,24 @@ int main(int argc, char *argv[])
         execl("./scheduler.out", "./scheduler.out", NULL);
     }
     // To get time use this function.
+    initClk();
     int x = getClk();
     printf("Current Time is %d\n", x);
     // TODO Generation Main Loop
     // 5. Create a data structure for processes and provide it with its parameters.
     // 6. Send the information to the scheduler at the appropriate time.
-    
+
     // 7. Clear clock resources
     destroyClk(true);
 }
 
-void readOptions(int* algorithm, int* quantum, int argc, char** argv)
+void readOptions(int *algorithm, int *quantum, int argc, char **argv)
 {
-    for(int i=1; i< argc; i++)
+    for (int i = 1; i < argc; i++)
     {
-        if(strcmp(argv[i], "-sch") == 0)
+        if (strcmp(argv[i], "-sch") == 0)
         {
-            if(i+1 > argc)
+            if (i + 1 > argc)
             {
                 printf("Error: No scheduling algorithm specified\n");
                 exit(1);
@@ -88,9 +89,9 @@ void readOptions(int* algorithm, int* quantum, int argc, char** argv)
                 *algorithm = atoi(argv[i + 1]);
             }
         }
-        else if(strcmp(argv[i], "-q") == 0)
+        else if (strcmp(argv[i], "-q") == 0)
         {
-            if(i+1 <= argc)
+            if (i + 1 <= argc)
             {
                 *quantum = atoi(argv[i + 1]);
             }
