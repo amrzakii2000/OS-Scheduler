@@ -16,7 +16,7 @@ int main(int argc, char *argv[])
         printf("Input File not found\n");
         exit(1);
     }
-
+    printf("Reading input file...\n");
     struct Queue *processesQueue = createQueue();
     // read lines of input file
     char *line = NULL;
@@ -66,6 +66,7 @@ int main(int argc, char *argv[])
     int x = getClk();
     sendInt(quantum);
     sendInt(algorithm);
+
     printf("Current Time is %d\n", x);
 
     // TODO Generation Main Loop
