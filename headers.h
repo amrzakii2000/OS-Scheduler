@@ -125,7 +125,6 @@ void sendProcess(struct Process *p)
         perror("Errror in send");
 };
 
-
 struct Queue
 {
     struct Process *front;
@@ -166,7 +165,14 @@ struct Process *dequeue(struct Queue *q)
     else
     {
         struct Process *p = q->front;
-        q->front = q->front->next;
+        if (q->front == q->rear)
+        {
+            q->front = q->rear = NULL;
+        }
+        else
+        {
+            q->front = q->front->next;
+        }
         return p;
     }
 }
