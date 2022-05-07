@@ -125,36 +125,7 @@ void sendProcess(struct Process *p)
         perror("Errror in send");
 };
 
-void sendInt(int toSend)
-{
-    int pGeneratorToSchedulerQueue = msgget(1234, 0666 | IPC_CREAT);
-    if (pGeneratorToSchedulerQueue == -1)
-    {
-        perror("Error in create");
-        exit(-1);
-    }
-    struct msgBuff message;
-    message.mtype = 2;
-    message.intMsg=toSend;
-    int send_val = msgsnd(pGeneratorToSchedulerQueue, &message, sizeof(message.intMsg), !IPC_NOWAIT);
-    if (send_val == -1)
-        perror("Errror in send");
-};
 
-void receiveInt(int *toReceive)
-{
-    int pGeneratorToSchedulerQueue = msgget(1234, 0666 | IPC_CREAT);
-    if (pGeneratorToSchedulerQueue == -1)
-    {
-        perror("Error in create");
-        exit(-1);
-    }
-    struct msgBuff message;
-    int receive_val = msgrcv(pGeneratorToSchedulerQueue, &message, sizeof(message.intMsg), 2, !IPC_NOWAIT);
-    if (receive_val == -1)
-        perror("Errror in receive");
-    *toReceive = message.intMsg;
-};
 struct Queue
 {
     struct Process *front;
@@ -259,18 +230,6 @@ void insertByRuntime(struct Queue *q, struct Process *p)
                 q->rear = p;
             }
         }
-    }
-}
-
-struct Process *peek(struct Queue *q)
-{
-    if (q->front == NULL)
-    {
-        return NULL;
-    }
-    else
-    {
-        return q->front;
     }
 }
 
