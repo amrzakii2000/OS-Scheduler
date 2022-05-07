@@ -134,7 +134,7 @@ struct Queue
 
 struct Queue *createQueue()
 {
-    struct Queue *q = (struct Queue *)malloc(sizeof(struct Queue));
+    struct Queue *q = (struct Queue *)malloc(8*sizeof(struct Queue));
     q->front = q->rear = NULL;
     return q;
 }
@@ -156,6 +156,7 @@ void enqueue(struct Queue *q, struct Process *p)
         q->rear = p;
     }
 }
+
 
 struct Process *dequeue(struct Queue *q)
 {
@@ -189,6 +190,36 @@ void insertByPriority(struct Queue *q, struct Process *p)
         else
         {
             while (temp->next != NULL && temp->next->priority < p->priority)
+            {
+                temp = temp->next;
+            }
+            p->next = temp->next;
+            temp->next = p;
+            if (temp == q->rear)
+            {
+                q->rear = p;
+            }
+        }
+    }
+}
+void insertByShortestRunTime(struct Queue *q, struct Process *p)
+{
+    if (q->front == NULL)
+    {
+        p->next = NULL;
+        q->front = q->rear = p;
+    }
+    else
+    {
+        struct Process *temp = q->front;
+        if (temp->runTime > p->runTime)
+        {
+            p->next = temp;
+            q->front = p;
+        }
+        else
+        {
+            while (temp->next != NULL && temp->next->runTime < p->runTime)
             {
                 temp = temp->next;
             }
