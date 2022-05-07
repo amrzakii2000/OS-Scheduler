@@ -1,17 +1,21 @@
 #include "headers.h"
 
+void clearResources(int);
 void SJF();
 void HPF();
 void RR(int quantum);
 void MLFQ();
+
+struct Queue *processesQueue;
+
 int main(int argc, char *argv[])
 {
-    int AlgoType = -1;
-    int quantum = -1;
-    initClk();
+    signal(SIGINT, clearResources);
+
+    int AlgoType = atoi(argv[1]);
+    int quantum = atoi(argv[2]);
+
     // TODO: implement the scheduler.
-    receiveInt(&AlgoType);
-    receiveInt(&quantum);
     switch (AlgoType)
     {
     case 1:
@@ -27,16 +31,17 @@ int main(int argc, char *argv[])
         MLFQ();
         break;
     default:
-        printf("Invalid Algorithm Type\n");
         break;
     }
     // TODO: upon termination release the clock resources.
-    destroyClk(true);
+    return 0;
 }
 
 //shortest job first algorithm
 void SJF()
 {
+    processesQueue = createQueue();
+    int c = 0;
     int pGeneratorToSchedulerQueue = msgget(1234, 0666 | IPC_CREAT);
     if (pGeneratorToSchedulerQueue == -1)
     {
@@ -46,24 +51,45 @@ void SJF()
     struct processMsgBuff message;
     while (1)
     {
-        rec_process = msgrcv(pGeneratorToSchedulerQueue, &message, sizeof(message.process), 1, !IPC_NOWAIT);
+        int rec_process = msgrcv(pGeneratorToSchedulerQueue, &message, sizeof(message.process), 1, !IPC_NOWAIT);
         if (rec_process == -1)
             perror("Error in receive");
         else
         {
-            printf("\nMessage received: %s\n", message.mtext);
             struct Process p = message.process;
-            int pid = fork();
-            if (pid == 0)
-            {
-                //child process
-            }
-            else
-            {
-                //parent process
-
-            }
+            enqueue(processesQueue, &p);
+            printf("Process %d has arrived\n", p.id);
+            c++;
         }
-
+        if (c == 6)
+        {
+            raise(SIGINT);
+        }
+        
     }
+}
+
+void HPF()
+{
+    // int pGeneratorToSchedulerQueue = msgget(1234, 0666 | IPC_CREAT);
+}
+
+void RR(int quantum)
+{
+    while(1)
+    {
+        int x = getClk();
+        printf("\nCurrent time: %d\n", x);
+    }
+}
+
+void MLFQ()
+{
+
+}
+
+void clearResources(int signum)
+{
+    destroyClk(true);
+    exit(0);
 }
