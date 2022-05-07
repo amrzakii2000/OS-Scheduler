@@ -3,36 +3,19 @@
 
 void clearResources(int);
 void readOptions(int *, int *, int, char **);
+struct Queue *readFromFile(char *);
 struct Process *readProcess(char *);
+void alarmHandler();
+
+int startTime = 0;
+struct Queue *processesQueue;
 
 int main(int argc, char *argv[])
 {
     signal(SIGINT, clearResources);
-
-    // 1. Read the input files.
-    FILE *input = fopen(argv[1], "r");
-    if (input == NULL)
-    {
-        printf("Input File not found\n");
-        exit(1);
-    }
-
-    struct Queue *processesQueue = createQueue();
-    // read lines of input file
-    char *line = NULL;
-    size_t len = 0;
-    int lineCount = 0;
-
-    while (getline(&line, &len, input) != -1)
-    {
-        lineCount++;
-        if (lineCount == 1)
-            continue;
-
-        // read process
-        struct Process *process = readProcess(line);
-        enqueue(processesQueue, process);
-    }
+    signal(SIGALRM, alarmHandler);
+    // Read processes in a queue
+    processesQueue = readFromFile(argv[1]);
 
     // 2. Read the chosen scheduling algorithm and its parameters, if there are any from the argument list.
     int algorithm = -1;
@@ -48,7 +31,6 @@ int main(int argc, char *argv[])
     }
     else if (clockPid == 0)
     {
-        printf("Creating clock process\n");
         execl("./clk.out", "./clk.out", NULL);
     }
     int schedulerPid = fork();
@@ -59,30 +41,43 @@ int main(int argc, char *argv[])
     }
     else if (schedulerPid == 0)
     {
-        execl("./scheduler.out", "./scheduler.out", NULL);
-    }
-    // To get time use this function.
-    initClk();
-    int x = getClk();
-    sendInt(quantum);
-    sendInt(algorithm);
-    printf("Current Time is %d\n", x);
+        char algorithmName[5];
+        char quantumName[5];
 
-    // TODO Generation Main Loop
-    // 5. Create a data structure for processes and provide it with its parameters.
-    // 6. Send the information to the scheduler at the appropriate time.
-    while (!isEmpty(processesQueue))
+        sprintf(algorithmName, "%d", algorithm);
+        sprintf(quantumName, "%d", quantum);
+        execl("./scheduler.out", "./scheduler.out", algorithmName, quantumName, NULL);
+    }
+
+    initClk();
+    startTime = getClk();
+    if (processesQueue->front->arrivalTime - startTime > 0)
+    {
+        alarm(processesQueue->front->arrivalTime - startTime);
+        pause();
+    }
+
+    while(!isEmpty(processesQueue))
     {
         int currentTime = getClk();
-        while (currentTime - x == processesQueue->front->arrivalTime)
+        while (processesQueue->front != NULL && currentTime - startTime >= processesQueue->front->arrivalTime)
         {
             struct Process *process = dequeue(processesQueue);
             sendProcess(process);
         }
-    }
+        if(isEmpty(processesQueue))
+        {
+           destroyClk(false);
+           pause();
+        }
 
-    // 7. Clear clock resources
-    destroyClk(true);
+        int waitingTime = processesQueue->front->arrivalTime - getClk();
+        if (waitingTime > 0)
+        {
+            alarm(waitingTime);
+            pause();
+        }
+    }
 }
 
 void readOptions(int *algorithm, int *quantum, int argc, char **argv)
@@ -110,6 +105,37 @@ void readOptions(int *algorithm, int *quantum, int argc, char **argv)
         }
     }
 }
+
+struct Queue *readFromFile(char *fileName)
+{
+    // 1. Read the input files.
+    FILE *input = fopen(fileName, "r");
+    if (input == NULL)
+    {
+        printf("Input File not found\n");
+        exit(1);
+    }
+
+    struct Queue *processesQueue = createQueue();
+    // read lines of input file
+    char *line = NULL;
+    size_t len = 0;
+    int lineCount = 0;
+
+    while (getline(&line, &len, input) != -1)
+    {
+        lineCount++;
+        if (lineCount == 1)
+            continue;
+
+        // read process
+        struct Process *process = readProcess(line);
+        enqueue(processesQueue, process);
+    }
+    fclose(input);
+    return processesQueue;
+}
+
 struct Process *readProcess(char *line)
 {
     char *token = strtok(line, "\t");
@@ -128,7 +154,10 @@ struct Process *readProcess(char *line)
     return process;
 }
 
+void alarmHandler(){}
+
 void clearResources(int signum)
 {
-    // TODO Clears all resources in case of interruption
+    destroyClk(true);
+    exit(0);
 }
