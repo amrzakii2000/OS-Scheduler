@@ -133,7 +133,7 @@ struct Queue
 
 struct Queue *createQueue()
 {
-    struct Queue *q = (struct Queue *)malloc(8*sizeof(struct Queue));
+    struct Queue *q = (struct Queue *)malloc(8 * sizeof(struct Queue));
     q->front = q->rear = NULL;
     return q;
 }
@@ -155,7 +155,6 @@ void enqueue(struct Queue *q, struct Process *p)
         q->rear = p;
     }
 }
-
 
 struct Process *dequeue(struct Queue *q)
 {
@@ -273,4 +272,23 @@ void insertByRuntime(struct Queue *q, struct Process *p)
 bool isEmpty(struct Queue *q)
 {
     return q->front == NULL;
+}
+
+char *getProcessStateText(enum ProccessState state)
+{
+    switch (state)
+    {
+    case ARRIVED:
+        return "ARRIVED";
+    case STARTED:
+        return "STARTED";
+    case RESUMED:
+        return "RESUMED";
+    case STOPPED:
+        return "STOPPED";
+    case FINISHED:
+        return "FINISHED";
+    default:
+        return "UNKNOWN";
+    }
 }

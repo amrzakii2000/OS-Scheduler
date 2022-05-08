@@ -76,6 +76,9 @@ int main(int argc, char *argv[])
             pause();
         }
     }
+    // alarm(1);
+    // pause();
+    
     kill(schedulerPid, SIGUSR1);
     destroyClk(false);
     pause();
