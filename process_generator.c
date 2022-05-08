@@ -5,7 +5,7 @@ void clearResources(int);
 void readOptions(int *, int *, int, char **);
 struct Queue *readFromFile(char *);
 struct Process *readProcess(char *);
-void alarmHandler();
+void alarmHandler(int);
 
 int startTime = 0;
 struct Queue *processesQueue;
@@ -57,7 +57,7 @@ int main(int argc, char *argv[])
         pause();
     }
 
-    while(!isEmpty(processesQueue))
+    while (!isEmpty(processesQueue))
     {
         int currentTime = getClk();
         while (processesQueue->front != NULL && currentTime - startTime >= processesQueue->front->arrivalTime)
@@ -65,12 +65,10 @@ int main(int argc, char *argv[])
             struct Process *process = dequeue(processesQueue);
             sendProcess(process);
         }
-        if(isEmpty(processesQueue))
-        {
-           destroyClk(false);
-           pause();
-        }
 
+        if (isEmpty(processesQueue))
+            break;
+        
         int waitingTime = processesQueue->front->arrivalTime - getClk();
         if (waitingTime > 0)
         {
@@ -78,6 +76,9 @@ int main(int argc, char *argv[])
             pause();
         }
     }
+    kill(schedulerPid, SIGUSR1);
+    destroyClk(false);
+    pause();
 }
 
 void readOptions(int *algorithm, int *quantum, int argc, char **argv)
@@ -154,7 +155,7 @@ struct Process *readProcess(char *line)
     return process;
 }
 
-void alarmHandler(){}
+void alarmHandler(int signum) {}
 
 void clearResources(int signum)
 {

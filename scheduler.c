@@ -5,14 +5,19 @@ void SJF();
 void HPF();
 void RR(int quantum);
 void MLFQ();
-void alarmHandler();
-void childHandler();
+void handler(int);
+void alarmHandler(int);
+void childHandlerSJF(int);
 
 struct Queue *processesQueue;
+bool recivedAllProcesses = false;
+bool currentRunning = false;
+int pGeneratorToSchedulerQueue;
 
 int main(int argc, char *argv[])
 {
     signal(SIGINT, clearResources);
+    signal(SIGUSR1, handler);
 
     int AlgoType = atoi(argv[1]);
     int quantum = atoi(argv[2]);
@@ -39,81 +44,59 @@ int main(int argc, char *argv[])
     return 0;
 }
 
-void childHandler(int sigNum)
-{
-    if (!isEmpty(processesQueue))
-    {
-        struct Process *processSend = dequeue(processesQueue);
-        pid = fork();
-        if (pid == 0)
-        {
-            execl("./process.out", "./process.out", processSend->remainingTime, processSend->runTime, NULL);
-        }
-        else
-        {
-            printf("Process %d has started\n", p->id);
-        }
-    }
-    else{
-        printf("No more processes to run\n");
-
-    }
-}
 // shortest job first algorithm
 void SJF()
 {
     processesQueue = createQueue();
     struct Process *p = NULL;
-    int c = 0;
-    int pGeneratorToSchedulerQueue = msgget(1234, 0666 | IPC_CREAT);
-    signal(SIGCHLD, childHandeler);
+    pGeneratorToSchedulerQueue = msgget(1234, 0666 | IPC_CREAT);
+    signal(SIGCHLD, childHandlerSJF);
+
     if (pGeneratorToSchedulerQueue == -1)
     {
         perror("Error in create");
         exit(-1);
     }
-    bool firstProcess = true;
     while (1)
     {
         struct processMsgBuff message;
-
+    
         int rec_process = msgrcv(pGeneratorToSchedulerQueue, &message, sizeof(message.process), 0, !IPC_NOWAIT);
-        if (rec_process == -1)
-            perror("Error in receive");
-        else
+        if (rec_process != -1)
         {
             p = createProcess(message.process.id, message.process.priority, message.process.runTime, message.process.arrivalTime);
             insertByShortestRunTime(processesQueue, p);
-            printf("Process %d has arrived\n", p->id);
-            if (firstProcess)
-            {
-                firstProcess = false;
-                struct Process *processSend = dequeue(processesQueue);
-                pid = fork();
-                if (pid == 0)
-                {
-                    execl("./process.out", "./process.out", processSend->remainingTime, processSend->runTime, NULL);
-                }
-                else
-                {
+        }
 
-                    printf("Process %d has started\n", p->id);
-                }
+        if (!currentRunning)
+        {
+            struct Process *processSend = dequeue(processesQueue);
+            if (processesQueue->front != NULL)
+            {
+                printf("Process %d is running\n", processesQueue->front);
+            }
+            int pid = fork();
+            if (pid == 0)
+            {
+                char runTimeValue[5];
+                sprintf(runTimeValue, "%d", processSend->remainingTime);
+                execl("./process.out", "./process.out", runTimeValue, runTimeValue, NULL);
+            }
+            else if (pid != -1)
+            {
+                currentRunning = true;
             }
         }
-        c++;
+        if (recivedAllProcesses && isEmpty(processesQueue))
+        {
+            printf("Finished all processes at time: %d\n", getClk());
+            raise(SIGINT);
+        }
     }
-    if (c == 6)
-    {
-        raise(SIGINT);
-    }
-
-    msgctl(pGeneratorToSchedulerQueue, IPC_RMID, (struct msqid_ds *)0);
 }
 
 void HPF()
 {
-    // int pGeneratorToSchedulerQueue = msgget(1234, 0666 | IPC_CREAT);
 }
 
 void RR(int quantum)
@@ -191,12 +174,23 @@ void MLFQ()
 {
 }
 
-void alarmHandler()
+void alarmHandler(int signum)
 {
+}
+
+void handler(int signum)
+{
+    recivedAllProcesses = true;
+}
+
+void childHandlerSJF(int signum)
+{
+    currentRunning = false;
 }
 
 void clearResources(int signum)
 {
+    msgctl(pGeneratorToSchedulerQueue, IPC_RMID, (struct msqid_ds *)0);
     destroyClk(true);
     exit(0);
 }

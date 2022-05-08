@@ -1,30 +1,35 @@
 #include "headers.h"
 
 /* Modify this file as needed*/
-int remainingtime;
-int timeQuantum;
-void alarmHandler();
+int remainingTime = 0;
+int waitTime = 0;
+int finishTime = 0;
+int timeQuantum = 0;
+
+void alarmHandler(int signum);
 
 int main(int agrc, char *argv[])
 {
     initClk();
-
-    // TODO The process needs to get the remaining time from somewhere
-    remainingtime = atoi(argv[1]);
+    
+    remainingTime = atoi(argv[1]);
     timeQuantum = atoi(argv[2]);
-    if(remainingtime>=timeQuantum){
-    alarm(timeQuantum);
-    pause();
-    remainingtime = remainingtime - timeQuantum;
-    }
-    else{
-        alarm(remainingtime);
+
+    signal(SIGALRM, alarmHandler);
+
+    if (remainingTime >= timeQuantum)
+    {
+        alarm(timeQuantum);
         pause();
-        remainingtime = 0;
-        
+        remainingTime = remainingTime - timeQuantum;
+    }
+    else
+    {
+        alarm(remainingTime);
+        pause();
+        remainingTime = 0;
     }
     destroyClk(false);
-    printf("process finished after time: %d and remaining time: %d \n", timeQuantum,remainingtime);
     return 0;
 }
-void alarmHandler() {}
+void alarmHandler(int signum) {}
