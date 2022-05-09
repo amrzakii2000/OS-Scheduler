@@ -12,7 +12,7 @@ int main(int agrc, char *argv[])
     
     remainingTime = atoi(argv[1]);
     timeQuantum = atoi(argv[2]);
-    
+        
     signal(SIGALRM, alarmHandler);
     if (remainingTime >= timeQuantum)
     {
@@ -26,6 +26,7 @@ int main(int agrc, char *argv[])
         pause();
         remainingTime = 0;
     }
+   // printf("Process finished its quantum\n");
     destroyClk(false);
     return 0;
 }
