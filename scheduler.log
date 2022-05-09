@@ -1,0 +1,22 @@
+----------    Shortest Job First algorithm started    ----------
+At time x process y state arr w total z remain y wait k
+
+At time 1 process 1 ARRIVED arr 1 total 10 remain 10 wait 0
+At time 1 process 1 STARTED arr 1 total 10 remain 10 wait 0
+At time 6 process 2 ARRIVED arr 6 total 5 remain 5 wait 0
+At time 10 process 3 ARRIVED arr 10 total 2 remain 2 wait 0
+At time 10 process 4 ARRIVED arr 10 total 12 remain 12 wait 0
+At time 12 process 1 FINISHED arr 1 total 10 remain 0 wait 0 TA 11 WTA 1.00
+At time 12 process 3 STARTED arr 10 total 2 remain 2 wait 2
+At time 13 process 5 ARRIVED arr 13 total 6 remain 6 wait 0
+At time 13 process 6 ARRIVED arr 13 total 13 remain 13 wait 0
+At time 14 process 3 FINISHED arr 10 total 2 remain 0 wait 2 TA 4 WTA 2.00
+At time 14 process 2 STARTED arr 6 total 5 remain 5 wait 8
+At time 19 process 2 FINISHED arr 6 total 5 remain 0 wait 8 TA 13 WTA 2.00
+At time 19 process 5 STARTED arr 13 total 6 remain 6 wait 6
+At time 25 process 5 FINISHED arr 13 total 6 remain 0 wait 6 TA 12 WTA 2.00
+At time 25 process 4 STARTED arr 10 total 12 remain 12 wait 15
+At time 37 process 4 FINISHED arr 10 total 12 remain 0 wait 15 TA 27 WTA 2.00
+At time 37 process 6 STARTED arr 13 total 13 remain 13 wait 24
+At time 50 process 6 FINISHED arr 13 total 13 remain 0 wait 24 TA 37 WTA 2.00
+At time 50 all processes finished

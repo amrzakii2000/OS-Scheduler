@@ -12,8 +12,6 @@ int main(int agrc, char *argv[])
     
     remainingTime = atoi(argv[1]);
     timeQuantum = atoi(argv[2]);
-
-    printf("Remaining time: %d\n", remainingTime);
     
     signal(SIGALRM, alarmHandler);
     if (remainingTime >= timeQuantum)

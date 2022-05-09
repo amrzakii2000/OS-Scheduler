@@ -77,6 +77,7 @@ struct Process
     int runTime;
     int arrivalTime;
     int waitTime;
+    int startTime;
     int finishTime;
     int remainingTime;
     enum ProccessState state;
