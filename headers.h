@@ -77,7 +77,7 @@ struct Process
     int runTime;
     int arrivalTime;
     int waitTime;
-    int startTime;
+    int stoppingTime;
     int finishTime;
     int remainingTime;
     enum ProccessState state;
@@ -90,7 +90,7 @@ struct Process *createProcess(int id, int priority, int runTime, int arrivalTime
     p->id = id;
     p->priority = priority;
     p->runTime = p->remainingTime = runTime;
-    p->arrivalTime = arrivalTime;
+    p->arrivalTime = p->stoppingTime =  arrivalTime;
     p->waitTime = 0;
     p->finishTime = 0;
     p->state = ARRIVED;
@@ -291,5 +291,29 @@ char *getProcessStateText(enum ProccessState state)
         return "FINISHED";
     default:
         return "UNKNOWN";
+    }
+}
+
+//Print Queue
+void printQueue(struct Queue *q)
+{
+    struct Process *p = q->front;
+    while (p != NULL)
+    {
+        printf("%d", p->id);
+        p = p->next;
+    }
+    printf("\n");
+}
+
+
+struct Queue* getPriorityQueue(struct Queue** q, int size)
+{
+    for(int i=0; i<= size; i++)
+    {
+        if(!isEmpty(q[i]))
+        {
+            return q[i];
+        }
     }
 }
