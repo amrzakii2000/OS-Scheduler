@@ -1,5 +1,5 @@
 #include "headers.h"
-#include<string.h>
+#include <string.h>
 
 void clearResources(int);
 void SJF();
@@ -26,6 +26,11 @@ int main(int argc, char *argv[])
     initClk();
     int AlgoType = atoi(argv[1]);
     int quantum = atoi(argv[2]);
+    schedulerLog = fopen("scheduler.log", "w");
+    // TODO: implement the scheduler.
+    switch (AlgoType)
+    {
+    case 1:
         SJF();
         break;
     case 2:
@@ -43,7 +48,7 @@ int main(int argc, char *argv[])
     // TODO: upon termination release the clock resources.
     fprintf(schedulerLog, "At time %d all processes finished\n", getClk());
     fclose(schedulerLog);
-    //printf("%s", logFile);
+    // printf("%s", logFile);
     raise(SIGINT);
     return 0;
 }
@@ -51,8 +56,9 @@ int main(int argc, char *argv[])
 // shortest job first algorithm
 void SJF()
 {
+    fprintf(schedulerLog, "----------          SJF algorithm started          ---------\n");
     fprintf(schedulerLog, "At time x process y state arr w total z remain y wait k\n\n");
-    //strcat(logFile, "At time x process y state arr w total z remain y wait k\n");
+    // strcat(logFile, "At time x process y state arr w total z remain y wait k\n");
     processesQueue = createQueue();
     struct Process *p = NULL;
     pGeneratorToSchedulerQueue = msgget(1234, 0666 | IPC_CREAT);
@@ -78,6 +84,7 @@ void SJF()
             {
                 p = createProcess(message.process.id, message.process.priority, message.process.runTime, message.process.arrivalTime);
                 insertByShortestRunTime(processesQueue, p);
+                fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d\n", getClk(), p->id, getProcessStateText(p->state), p->arrivalTime, p->runTime, p->remainingTime, p->waitTime);
                 break;
             }
             // printf("At time %d process %d %s arr %d total %d remain %d wait %d", getClk(), p->id, getProcessStateText(p->state), p->arrivalTime, p->runTime, p->remainingTime, p->waitTime);
@@ -87,8 +94,9 @@ void SJF()
         {
             processSend = dequeue(processesQueue);
             processSend->state = STARTED;
-            // printf("At time %d process %d %s arr %d total %d remain %d wait %d", getClk(), processSend->id, getProcessStateText(processSend->state), processSend->arrivalTime, processSend->runTime, processSend->remainingTime, processSend->waitTime);
-            //fprintf(schedulerLog, "At time %d ", getClk());
+            processSend->startTime = getClk();
+            processSend->waitTime = getClk() - processSend->arrivalTime;
+            fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d\n", getClk(), processSend->id, getProcessStateText(processSend->state), processSend->arrivalTime, processSend->runTime, processSend->remainingTime, processSend->waitTime);
             processSend->remainingTime = 0;
             int pid = fork();
             if (pid == 0)
@@ -203,8 +211,10 @@ void childHandlerSJF(int signum)
     if (processSend->remainingTime == 0)
     {
         processSend->state = FINISHED;
-        //printf("At time %d process %d %s arr %d total %d remain %d wait %d", getClk(), processSend->id, getProcessStateText(processSend->state), processSend->arrivalTime, processSend->runTime, processSend->remainingTime, processSend->waitTime);
-        //fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d", getClk(), processSend->id, getProcessStateText(processSend->state), processSend->arrivalTime, processSend->runTime, processSend->remainingTime, processSend->waitTime);
+        processSend->finishTime = getClk();
+        int turnAround = processSend->finishTime - processSend->arrivalTime;
+        float weightedTurnAround = turnAround / processSend->runTime;
+        fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d TA %d WTA %.2f\n", getClk(), processSend->id, getProcessStateText(processSend->state), processSend->arrivalTime, processSend->runTime, processSend->remainingTime, processSend->waitTime, turnAround, weightedTurnAround);
     }
     else
     {
