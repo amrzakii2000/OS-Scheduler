@@ -6,10 +6,18 @@ int remainingtime;
 int main(int agrc, char *argv[])
 {
     initClk();
-
-    //TODO The process needs to get the remaining time from somewhere
-    //remainingtime = ??;
-    while (remainingtime > 0)
+    
+    remainingTime = atoi(argv[1]);
+    timeQuantum = atoi(argv[2]);
+    
+    signal(SIGALRM, alarmHandler);
+    if (remainingTime >= timeQuantum)
+    {
+        alarm(timeQuantum);
+        pause();
+        remainingTime = remainingTime - timeQuantum;
+    }
+    else
     {
         // remainingtime = ??;
     }
