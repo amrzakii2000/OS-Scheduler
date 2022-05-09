@@ -1,7 +1,10 @@
 #include "headers.h"
 
 /* Modify this file as needed*/
-int remainingtime;
+int remainingTime = 0;
+int timeQuantum = 0;
+
+void alarmHandler(int signum);
 
 int main(int agrc, char *argv[])
 {
@@ -19,10 +22,11 @@ int main(int agrc, char *argv[])
     }
     else
     {
-        // remainingtime = ??;
+        alarm(remainingTime);
+        pause();
+        remainingTime = 0;
     }
-
     destroyClk(false);
-
     return 0;
 }
+void alarmHandler(int signum) {}

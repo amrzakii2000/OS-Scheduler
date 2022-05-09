@@ -1,5 +1,7 @@
 #include "headers.h"
+#include<string.h>
 
+void clearResources(int);
 void SJF();
 void HPF();
 void RR(int quantum);
@@ -24,13 +26,6 @@ int main(int argc, char *argv[])
     initClk();
     int AlgoType = atoi(argv[1]);
     int quantum = atoi(argv[2]);
-    schedulerLog = fopen("scheduler.log", "w");
-    // TODO: implement the scheduler.
-    receiveInt(&AlgoType);
-    receiveInt(&quantum);
-    switch (AlgoType)
-    {
-    case 1:
         SJF();
         break;
     case 2:
@@ -43,7 +38,6 @@ int main(int argc, char *argv[])
         MLFQ();
         break;
     default:
-        printf("Invalid Algorithm Type\n");
         break;
     }
     // TODO: upon termination release the clock resources.
@@ -54,7 +48,7 @@ int main(int argc, char *argv[])
     return 0;
 }
 
-//shortest job first algorithm
+// shortest job first algorithm
 void SJF()
 {
     fprintf(schedulerLog, "At time x process y state arr w total z remain y wait k\n\n");
@@ -68,15 +62,14 @@ void SJF()
     {
         perror("Error in create");
     }
-    struct processMsgBuff message;
     while (1)
     {
-        rec_process = msgrcv(pGeneratorToSchedulerQueue, &message, sizeof(message.process), 1, !IPC_NOWAIT);
-        if (rec_process == -1)
-            perror("Error in receive");
-        else
+        struct processMsgBuff message;
+
+        int rec_process = 1;
+        while (rec_process != -1)
         {
-            rec_process = msgrcv(pGeneratorToSchedulerQueue, &message, sizeof(message.process), 0, !IPC_NOWAIT);
+            rec_process = msgrcv(pGeneratorToSchedulerQueue, &message, sizeof(message.process), 0, IPC_NOWAIT);
             if (rec_process == -1)
             {
                 break;
@@ -85,31 +78,36 @@ void SJF()
             {
                 p = createProcess(message.process.id, message.process.priority, message.process.runTime, message.process.arrivalTime);
                 insertByShortestRunTime(processesQueue, p);
-                //printf("pocess pid: %d", getpid());
-                fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d\n", getClk(), p->id, getProcessStateText(p->state), p->arrivalTime, p->runTime, p->remainingTime, p->waitTime);
                 break;
             }
+            // printf("At time %d process %d %s arr %d total %d remain %d wait %d", getClk(), p->id, getProcessStateText(p->state), p->arrivalTime, p->runTime, p->remainingTime, p->waitTime);
         }
 
         if (!currentRunning && !isEmpty(processesQueue))
         {
             processSend = dequeue(processesQueue);
             processSend->state = STARTED;
-            processSend->startTime = getClk();
-            processSend->waitTime = getClk() - processSend->arrivalTime;
-            fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d\n", getClk(), processSend->id, getProcessStateText(processSend->state), processSend->arrivalTime, processSend->runTime, processSend->remainingTime, processSend->waitTime);
+            // printf("At time %d process %d %s arr %d total %d remain %d wait %d", getClk(), processSend->id, getProcessStateText(processSend->state), processSend->arrivalTime, processSend->runTime, processSend->remainingTime, processSend->waitTime);
+            //fprintf(schedulerLog, "At time %d ", getClk());
             processSend->remainingTime = 0;
             int pid = fork();
             if (pid == 0)
             {
-                //child process
+                char runTimeValue[5];
+                sprintf(runTimeValue, "%d", processSend->runTime);
+                execl("./process.out", "./process.out", runTimeValue, runTimeValue, NULL);
             }
-            else
+            else if (pid != -1)
             {
-                //parent process
-
+                currentRunning = true;
             }
         }
+        if (recivedAllProcesses && isEmpty(processesQueue) && !currentRunning)
+        {
+            break;
+        }
+    }
+}
 
 void HPF()
 {
@@ -205,13 +203,18 @@ void childHandlerSJF(int signum)
     if (processSend->remainingTime == 0)
     {
         processSend->state = FINISHED;
-        processSend->finishTime = getClk();
-        int turnAround = processSend->finishTime - processSend->arrivalTime;
-        float weightedTurnAround = turnAround / processSend->runTime;
-        fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d TA %d WTA %.2f\n", getClk(), processSend->id, getProcessStateText(processSend->state), processSend->arrivalTime, processSend->runTime, processSend->remainingTime, processSend->waitTime, turnAround, weightedTurnAround);
+        //printf("At time %d process %d %s arr %d total %d remain %d wait %d", getClk(), processSend->id, getProcessStateText(processSend->state), processSend->arrivalTime, processSend->runTime, processSend->remainingTime, processSend->waitTime);
+        //fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d", getClk(), processSend->id, getProcessStateText(processSend->state), processSend->arrivalTime, processSend->runTime, processSend->remainingTime, processSend->waitTime);
     }
     else
     {
         processSend->state = STOPPED;
     }
+}
+
+void clearResources(int signum)
+{
+    msgctl(pGeneratorToSchedulerQueue, IPC_RMID, (struct msqid_ds *)0);
+    destroyClk(true);
+    exit(0);
 }
