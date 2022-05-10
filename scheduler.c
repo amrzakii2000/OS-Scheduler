@@ -178,7 +178,7 @@ void MLFQ(int quantum)
         recieveMultiLevelProcesses();
         processesQueue = getPriorityQueue(multiLevelQueue, PRIORITY_LEVELS);
 
-        if (!currentRunning && !isEmpty(processesQueue))
+        if (processesQueue != NULL && !currentRunning && !isEmpty(processesQueue))
         {
             processSend = dequeue(processesQueue);
             processSend->state = STARTED;
@@ -204,7 +204,7 @@ void MLFQ(int quantum)
                 currentRunning = true;
             }
         }
-        if (recivedAllProcesses && isEmpty(processesQueue) && !currentRunning)
+        if (recivedAllProcesses && (processesQueue == NULL || isEmpty(processesQueue)) && !currentRunning)
         {
             break;
         }
@@ -240,8 +240,22 @@ void childHandler(int signum)
         if(AlgoType == MULTILEVEL_FEEDBACK_QUEUE)
         {
             recieveMultiLevelProcesses();
-            int nextLevel = processSend->priority + 1 > PRIORITY_LEVELS ? PRIORITY_LEVELS : processSend->priority + 1; 
+            printf("Queues after recieveing\n");
+            for(int i=0; i<=PRIORITY_LEVELS; i++)
+            {
+                printf("Level %d\n", i);
+                printQueue(multiLevelQueue[i]);
+            }
+
+            int nextLevel = processSend->priority + 1 <= PRIORITY_LEVELS ? ++processSend->priority : PRIORITY_LEVELS;
             enqueue(multiLevelQueue[nextLevel], processSend);
+            
+            printf("Queues after enqueue\n");
+            for(int i=0; i<=PRIORITY_LEVELS; i++)
+            {
+                printf("Level %d\n", i);
+                printQueue(multiLevelQueue[i]);
+            }
         }
         else
         {
@@ -291,11 +305,9 @@ void recieveMultiLevelProcesses()
         }
         else
         {
-
+            
             p = createProcess(message.process.id, message.process.priority, message.process.runTime, message.process.arrivalTime);
-            printf("Process %d recieved\n", p->id);
             enqueue(multiLevelQueue[p->priority], p);
-            printf("Process %d recieved\n", p->id);
             fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d\n", getClk(), p->id, getProcessStateText(p->state), p->arrivalTime, p->runTime, p->remainingTime, p->waitTime);
             break;
         }
