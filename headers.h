@@ -300,7 +300,7 @@ void printQueue(struct Queue *q)
     struct Process *p = q->front;
     while (p != NULL)
     {
-        printf("%d", p->id);
+        printf("%d ", p->id);
         p = p->next;
     }
     printf("\n");
@@ -316,4 +316,5 @@ struct Queue* getPriorityQueue(struct Queue** q, int size)
             return q[i];
         }
     }
+    return NULL;
 }
