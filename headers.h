@@ -73,11 +73,13 @@ enum ProccessState
 struct Process
 {
     int id;
+    int pid;
     int priority;
     int runTime;
     int arrivalTime;
     int waitTime;
     int stoppingTime;
+    int startTime;
     int finishTime;
     int remainingTime;
     enum ProccessState state;
@@ -90,11 +92,12 @@ struct Process *createProcess(int id, int priority, int runTime, int arrivalTime
     p->id = id;
     p->priority = priority;
     p->runTime = p->remainingTime = runTime;
-    p->arrivalTime = p->stoppingTime =  arrivalTime;
+    p->arrivalTime = p->stoppingTime = arrivalTime;
     p->waitTime = 0;
     p->finishTime = 0;
     p->state = ARRIVED;
     p->next = NULL;
+    p->pid = -1;
 
     return p;
 };
@@ -294,7 +297,7 @@ char *getProcessStateText(enum ProccessState state)
     }
 }
 
-//Print Queue
+// Print Queue
 void printQueue(struct Queue *q)
 {
     struct Process *p = q->front;
@@ -306,12 +309,11 @@ void printQueue(struct Queue *q)
     printf("\n");
 }
 
-
-struct Queue* getPriorityQueue(struct Queue** q, int size)
+struct Queue *getPriorityQueue(struct Queue **q, int size)
 {
-    for(int i=0; i<= size; i++)
+    for (int i = 0; i <= size; i++)
     {
-        if(!isEmpty(q[i]))
+        if (!isEmpty(q[i]))
         {
             return q[i];
         }
