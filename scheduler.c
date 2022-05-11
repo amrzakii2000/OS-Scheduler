@@ -127,29 +127,41 @@ void HPF()
         recieveProcessHPF();
         if (!currentRunning && !isEmpty(processesQueue))
         {
+            currentRunning = true;
             processSend = dequeue(processesQueue);
             processSend->startTime = getClk();
-            if (processSend->state == STOPPED) {
+            if (processSend->state == STOPPED)
+            {
                 processSend->waitTime += getClk() - processSend->stoppingTime;
-            } else  {
+            }
+            else
+            {
                 processSend->waitTime += getClk() - processSend->stoppingTime;
             }
             processSend->state = STARTED;
-            
+
             fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d\n", getClk(), processSend->id, getProcessStateText(processSend->state), processSend->arrivalTime, processSend->runTime, processSend->remainingTime, processSend->waitTime);
-            runningProcessRemainingTime=processSend->remainingTime;
+            runningProcessRemainingTime = processSend->remainingTime;
             processSend->remainingTime = 0;
-           // processSend->runTime;
-            runningProcessPid = fork();
-            if (runningProcessPid == 0)
+
+            if (processSend->pid == -1)
             {
-                char runTimeValue[5];
-                sprintf(runTimeValue, "%d", processSend->runTime);
-                execl("./process.out", "./process.out", runTimeValue, runTimeValue, NULL);
+                runningProcessPid = fork();
+                if (runningProcessPid == 0)
+                {
+                    char runTimeValue[5];
+                    sprintf(runTimeValue, "%d", processSend->runTime);
+                    execl("./process.out", "./process.out", runTimeValue, runTimeValue, NULL);
+                }
+                else if (runningProcessPid != -1)
+                {
+                    processSend->pid = runningProcessPid;
+                }
             }
-            else if (runningProcessPid != -1)
+            else
             {
-                currentRunning = true;
+                kill(processSend->pid, SIGCONT);
+                runningProcessPid = processSend->pid;
             }
         }
         if (recivedAllProcesses && isEmpty(processesQueue) && !currentRunning)
@@ -187,7 +199,6 @@ void RR(int quantum)
             if (processSend->remainingTime >= quantum)
                 processSend->remainingTime -= quantum;
             else
-            
                 processSend->remainingTime = 0;
 
             if (processSend->pid == -1)
@@ -204,16 +215,13 @@ void RR(int quantum)
                 }
                 else if (runningProcessPid != -1)
                 {
-                    currentRunning = true;
                     processSend->pid = runningProcessPid;
                 }
             }
             else
             {
                 kill(processSend->pid, SIGCONT);
-                currentRunning = true;
                 runningProcessPid = processSend->pid;
-                // printf("Sending continue to process %d at time %d\n", processSend->id, getClk());
             }
         }
         if (recivedAllProcesses && isEmpty(processesQueue) && !currentRunning)
@@ -338,15 +346,9 @@ void recieveProcessHPF()
         {
 
             p = createProcess(message.process.id, message.process.priority, message.process.runTime, message.process.arrivalTime);
-            // printf("Recieved process of priority %d at clock: %d\n", p->priority, getClk());
-            if(processSend){
-                // printf("Current process of priority %d at clock: %d\n", processSend->priority, getClk());
-            }
             if (processSend && p->priority < processSend->priority)
             {
-                // printf("Higher priority process received\n");
-                processSend->remainingTime=runningProcessRemainingTime-getClk()+processSend->startTime;
-                processSend->runTime -= (getClk() - processSend->startTime);
+                processSend->remainingTime = runningProcessRemainingTime - getClk() + processSend->startTime;
                 kill(runningProcessPid, SIGSTOP);
                 processSend->state = STOPPED;
                 processSend->stoppingTime = getClk();
