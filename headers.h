@@ -320,3 +320,15 @@ struct Queue *getPriorityQueue(struct Queue **q, int size)
     }
     return NULL;
 }
+
+int getQueueSize(struct Queue *q)
+{
+    int size = 0;
+    struct Process *p = q->front;
+    while (p != NULL)
+    {
+        size++;
+        p = p->next;
+    }
+    return size;
+}

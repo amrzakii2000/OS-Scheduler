@@ -43,10 +43,14 @@ int main(int argc, char *argv[])
     {
         char algorithmName[5];
         char quantumName[5];
+        char processCountName[5];
+        int size = getQueueSize(processesQueue);
 
         sprintf(algorithmName, "%d", algorithm);
         sprintf(quantumName, "%d", quantum);
-        execl("./scheduler.out", "./scheduler.out", algorithmName, quantumName, NULL);
+        sprintf(processCountName, "%d",size);
+
+        execl("./scheduler.out", "./scheduler.out", algorithmName, quantumName, processCountName, NULL);
     }
 
     initClk();
@@ -76,9 +80,6 @@ int main(int argc, char *argv[])
             pause();
         }
     }
-    // alarm(1);
-    // pause();
-    
     kill(schedulerPid, SIGUSR1);
     destroyClk(false);
     pause();
