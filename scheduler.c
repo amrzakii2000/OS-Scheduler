@@ -130,14 +130,7 @@ void HPF()
             currentRunning = true;
             processSend = dequeue(processesQueue);
             processSend->startTime = getClk();
-            if (processSend->state == STOPPED)
-            {
-                processSend->waitTime += getClk() - processSend->stoppingTime;
-            }
-            else
-            {
-                processSend->waitTime += getClk() - processSend->stoppingTime;
-            }
+            processSend->waitTime += getClk() - processSend->stoppingTime;
             processSend->state = STARTED;
 
             fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d\n", getClk(), processSend->id, getProcessStateText(processSend->state), processSend->arrivalTime, processSend->runTime, processSend->remainingTime, processSend->waitTime);
@@ -194,8 +187,8 @@ void RR(int quantum)
             processSend->state = STARTED;
             processSend->startTime = getClk();
             processSend->waitTime += getClk() - processSend->stoppingTime;
-            fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d\n", getClk(), processSend->id, getProcessStateText(processSend->state), processSend->arrivalTime, processSend->runTime, processSend->remainingTime, processSend->waitTime);
 
+            runningProcessRemainingTime = processSend->remainingTime;
             if (processSend->remainingTime >= quantum)
                 processSend->remainingTime -= quantum;
             else
@@ -220,9 +213,11 @@ void RR(int quantum)
             }
             else
             {
+                processSend->state = RESUMED;
                 kill(processSend->pid, SIGCONT);
                 runningProcessPid = processSend->pid;
             }
+            fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d\n", getClk(), processSend->id, getProcessStateText(processSend->state), processSend->arrivalTime, processSend->runTime, runningProcessRemainingTime, processSend->waitTime);
         }
         if (recivedAllProcesses && isEmpty(processesQueue) && !currentRunning)
         {
@@ -246,14 +241,16 @@ void MLFQ(int quantum)
     while (1)
     {
         recieveMultiLevelProcesses();
+        stoppingHandler();
         processesQueue = getPriorityQueue(multiLevelQueue, PRIORITY_LEVELS);
 
         if (processesQueue != NULL && !currentRunning && !isEmpty(processesQueue))
         {
+            currentRunning = true;
             processSend = dequeue(processesQueue);
             processSend->state = STARTED;
+            processSend->startTime = getClk();
             processSend->waitTime += getClk() - processSend->stoppingTime;
-            fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d\n", getClk(), processSend->id, getProcessStateText(processSend->state), processSend->arrivalTime, processSend->runTime, processSend->remainingTime, processSend->waitTime);
 
             runningProcessRemainingTime = processSend->remainingTime;
             if (processSend->remainingTime >= quantum)
@@ -261,19 +258,30 @@ void MLFQ(int quantum)
             else
                 processSend->remainingTime = 0;
 
-            runningProcessPid = fork();
-            if (runningProcessPid == 0)
+            if (processSend->pid == -1)
             {
-                char remainingTimeValue[5];
-                char quantumTimeValue[5];
-                sprintf(remainingTimeValue, "%d", processSend->runTime);
-                sprintf(quantumTimeValue, "%d", quantum);
-                execl("./process.out", "./process.out", remainingTimeValue, quantumTimeValue, NULL);
+                runningProcessPid = fork();
+                if (runningProcessPid == 0)
+                {
+                    char remainingTimeValue[5];
+                    char quantumTimeValue[5];
+
+                    sprintf(remainingTimeValue, "%d", processSend->runTime);
+                    sprintf(quantumTimeValue, "%d", quantum);
+                    execl("./process.out", "./process.out", remainingTimeValue, quantumTimeValue, NULL);
+                }
+                else if (runningProcessPid != -1)
+                {
+                    processSend->pid = runningProcessPid;
+                }
             }
-            else if (runningProcessPid != -1)
+            else
             {
-                currentRunning = true;
+                processSend->state = RESUMED;
+                kill(processSend->pid, SIGCONT);
+                runningProcessPid = processSend->pid;
             }
+            fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d\n", getClk(), processSend->id, getProcessStateText(processSend->state), processSend->arrivalTime, processSend->runTime, runningProcessRemainingTime, processSend->waitTime);
         }
         if (recivedAllProcesses && (processesQueue == NULL || isEmpty(processesQueue)) && !currentRunning)
         {
@@ -379,10 +387,15 @@ void recieveMultiLevelProcesses()
             p = createProcess(message.process.id, message.process.priority, message.process.runTime, message.process.arrivalTime);
             enqueue(multiLevelQueue[p->priority], p);
             fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d\n", getClk(), p->id, getProcessStateText(p->state), p->arrivalTime, p->runTime, p->remainingTime, p->waitTime);
-            if (currentRunning && p->priority > processSend->priority)
+            if (currentRunning && processSend && p->priority < processSend->priority)
             {
-                kill(runningProcessPid, SIGTERM);
-                processSend->remainingTime = runningProcessRemainingTime - getClk();
+                processSend->remainingTime = runningProcessRemainingTime - getClk() + processSend->startTime;
+                kill(runningProcessPid, SIGSTOP);
+                processSend->state = STOPPED;
+                processSend->stoppingTime = getClk();
+                fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d\n", getClk(), processSend->id, getProcessStateText(processSend->state), processSend->arrivalTime, processSend->runTime, processSend->remainingTime, processSend->waitTime);
+                currentRunning = false;
+                enqueue(multiLevelQueue[processSend->priority], processSend);
             }
             break;
         }
@@ -411,21 +424,8 @@ void stoppingHandler()
         if (AlgoType == MULTILEVEL_FEEDBACK_QUEUE)
         {
             recieveMultiLevelProcesses();
-            for (int i = 0; i <= PRIORITY_LEVELS; i++)
-            {
-                printf("Level %d\n", i);
-                printQueue(multiLevelQueue[i]);
-            }
-
             int nextLevel = processSend->priority + 1 <= PRIORITY_LEVELS ? ++processSend->priority : PRIORITY_LEVELS;
             enqueue(multiLevelQueue[nextLevel], processSend);
-
-            printf("Queues after enqueue\n");
-            for (int i = 0; i <= PRIORITY_LEVELS; i++)
-            {
-                printf("Level %d\n", i);
-                printQueue(multiLevelQueue[i]);
-            }
         }
         else
         {
