@@ -80,7 +80,6 @@ int main(int argc, char *argv[])
     fclose(schedulerLog);
 
     schedulerPerf = fopen("scheduler.perf", "w");
-    // calculate cpu utilization
     fprintf(schedulerPerf, "CPU Utilization: %.2f %%\n", ((float)(totalClockCycles - idleClockCycles) / totalClockCycles) * 100);
     fprintf(schedulerPerf, "Average WT: %.2f\n", (float)totalWaitingTime / processesCount);
     fprintf(schedulerPerf, "Average WTA: %.2f\n", totalWeightedTurnAroundTime / processesCount);
@@ -357,9 +356,15 @@ void recieveProcess()
         }
         else
         {
-
             p = createProcess(message.process.id, message.process.priority, message.process.runTime, message.process.arrivalTime);
-            enqueue(processesQueue, p);
+            if (AlgoType == SHORTEST_JOB_FIRST)
+            {
+                insertByRuntime(processesQueue, p);
+            }
+            else if (AlgoType == ROUND_ROBIN)
+            {
+                enqueue(processesQueue, p);
+            }
             fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d\n", getClk(), p->id, getProcessStateText(p->state), p->arrivalTime, p->runTime, p->remainingTime, p->waitTime);
             break;
         }
