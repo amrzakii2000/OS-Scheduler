@@ -21,6 +21,8 @@ void recieveProcessHPF();
 void stoppingHandler();
 void InitializeMultiLevelQueue();
 void recieveMultiLevelProcesses();
+void countIdleClockCycles();
+void countClockCycles();
 
 int AlgoType;
 int quantum;
@@ -40,6 +42,9 @@ int runningProcessPid;
 int runningProcessRemainingTime;
 int totalWaitingTime = 0;
 float totalWeightedTurnAroundTime = 0;
+int currentClock = 0;
+int totalClockCycles = 0;
+int idleClockCycles = 0;
 
 int main(int argc, char *argv[])
 {
@@ -75,6 +80,8 @@ int main(int argc, char *argv[])
     fclose(schedulerLog);
 
     schedulerPerf = fopen("scheduler.perf", "w");
+    // calculate cpu utilization
+    fprintf(schedulerPerf, "CPU Utilization: %.2f %%\n", ((float)(totalClockCycles - idleClockCycles) / totalClockCycles) * 100);
     fprintf(schedulerPerf, "Average WT: %.2f\n", (float)totalWaitingTime / processesCount);
     fprintf(schedulerPerf, "Average WTA: %.2f\n", totalWeightedTurnAroundTime / processesCount);
     fclose(schedulerPerf);
@@ -121,6 +128,7 @@ void SJF()
         {
             break;
         }
+        countClockCycles();
     }
 }
 
@@ -174,6 +182,7 @@ void HPF()
         {
             break;
         }
+        countClockCycles();
     }
 }
 
@@ -236,6 +245,7 @@ void RR(int quantum)
         {
             break;
         }
+        countClockCycles();
     }
 }
 
@@ -300,6 +310,7 @@ void MLFQ(int quantum)
         {
             break;
         }
+        countClockCycles();
     }
 }
 
@@ -447,5 +458,21 @@ void stoppingHandler()
             recieveProcess();
             enqueue(processesQueue, processSend);
         }
+    }
+}
+
+void countClockCycles()
+{
+    if (currentClock < getClk())
+    {
+        currentClock = getClk();
+
+        if (!currentRunning && !recivedAllProcesses)
+        {
+            idleClockCycles++;
+        }
+        totalClockCycles++;
+        printf("Total Cycles: %d\n", totalClockCycles);
+        printf("Idle Cycles: %d\n", idleClockCycles);
     }
 }
