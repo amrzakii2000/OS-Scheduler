@@ -17,6 +17,7 @@ void handler(int);
 void alarmHandler(int);
 void childHandler(int);
 void recieveProcess();
+void recieveProcessHPF();
 void stoppingHandler();
 void InitializeMultiLevelQueue();
 void recieveMultiLevelProcesses();
@@ -112,6 +113,62 @@ void SJF()
 
 void HPF()
 {
+    fprintf(schedulerLog, "----------          HPF algorithm started          ---------\n");
+    fprintf(schedulerLog, "At time x process y state arr w total z remain y wait k\n\n");
+    processesQueue = createQueue();
+    pGeneratorToSchedulerQueue = msgget(1234, 0666 | IPC_CREAT);
+
+    if (pGeneratorToSchedulerQueue == -1)
+    {
+        perror("Error in create");
+    }
+    while (1)
+    {
+        recieveProcessHPF();
+        if (!currentRunning && !isEmpty(processesQueue))
+        {
+            currentRunning = true;
+            processSend = dequeue(processesQueue);
+            processSend->startTime = getClk();
+            if (processSend->state == STOPPED)
+            {
+                processSend->waitTime += getClk() - processSend->stoppingTime;
+            }
+            else
+            {
+                processSend->waitTime += getClk() - processSend->stoppingTime;
+            }
+            processSend->state = STARTED;
+
+            fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d\n", getClk(), processSend->id, getProcessStateText(processSend->state), processSend->arrivalTime, processSend->runTime, processSend->remainingTime, processSend->waitTime);
+            runningProcessRemainingTime = processSend->remainingTime;
+            processSend->remainingTime = 0;
+
+            if (processSend->pid == -1)
+            {
+                runningProcessPid = fork();
+                if (runningProcessPid == 0)
+                {
+                    char runTimeValue[5];
+                    sprintf(runTimeValue, "%d", processSend->runTime);
+                    execl("./process.out", "./process.out", runTimeValue, runTimeValue, NULL);
+                }
+                else if (runningProcessPid != -1)
+                {
+                    processSend->pid = runningProcessPid;
+                }
+            }
+            else
+            {
+                kill(processSend->pid, SIGCONT);
+                runningProcessPid = processSend->pid;
+            }
+        }
+        if (recivedAllProcesses && isEmpty(processesQueue) && !currentRunning)
+        {
+            break;
+        }
+    }
 }
 
 void RR(int quantum)
@@ -158,16 +215,13 @@ void RR(int quantum)
                 }
                 else if (runningProcessPid != -1)
                 {
-                    currentRunning = true;
                     processSend->pid = runningProcessPid;
                 }
             }
             else
             {
                 kill(processSend->pid, SIGCONT);
-                currentRunning = true;
                 runningProcessPid = processSend->pid;
-                // printf("Sending continue to process %d at time %d\n", processSend->id, getClk());
             }
         }
         if (recivedAllProcesses && isEmpty(processesQueue) && !currentRunning)
@@ -272,6 +326,37 @@ void recieveProcess()
 
             p = createProcess(message.process.id, message.process.priority, message.process.runTime, message.process.arrivalTime);
             enqueue(processesQueue, p);
+            fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d\n", getClk(), p->id, getProcessStateText(p->state), p->arrivalTime, p->runTime, p->remainingTime, p->waitTime);
+            break;
+        }
+    }
+}
+
+void recieveProcessHPF()
+{
+    while (rec_process != -1)
+    {
+        rec_process = msgrcv(pGeneratorToSchedulerQueue, &message, sizeof(message.process), 0, IPC_NOWAIT);
+        if (rec_process == -1)
+        {
+            rec_process = 1;
+            break;
+        }
+        else
+        {
+
+            p = createProcess(message.process.id, message.process.priority, message.process.runTime, message.process.arrivalTime);
+            if (processSend && p->priority < processSend->priority)
+            {
+                processSend->remainingTime = runningProcessRemainingTime - getClk() + processSend->startTime;
+                kill(runningProcessPid, SIGSTOP);
+                processSend->state = STOPPED;
+                processSend->stoppingTime = getClk();
+                fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d\n", getClk(), processSend->id, getProcessStateText(processSend->state), processSend->arrivalTime, processSend->runTime, processSend->remainingTime, processSend->waitTime);
+                currentRunning = false;
+                insertByPriority(processesQueue, processSend);
+            }
+            insertByPriority(processesQueue, p);
             fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d\n", getClk(), p->id, getProcessStateText(p->state), p->arrivalTime, p->runTime, p->remainingTime, p->waitTime);
             break;
         }
