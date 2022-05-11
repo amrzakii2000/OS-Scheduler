@@ -135,7 +135,9 @@ void HPF()
                 processSend->waitTime += getClk() - processSend->stoppingTime;
             }
             processSend->state = STARTED;
+            
             fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d\n", getClk(), processSend->id, getProcessStateText(processSend->state), processSend->arrivalTime, processSend->runTime, processSend->remainingTime, processSend->waitTime);
+            runningProcessRemainingTime=processSend->remainingTime;
             processSend->remainingTime = 0;
            // processSend->runTime;
             runningProcessPid = fork();
@@ -185,6 +187,7 @@ void RR(int quantum)
             if (processSend->remainingTime >= quantum)
                 processSend->remainingTime -= quantum;
             else
+            
                 processSend->remainingTime = 0;
 
             if (processSend->pid == -1)
@@ -342,6 +345,7 @@ void recieveProcessHPF()
             if (processSend && p->priority < processSend->priority)
             {
                 // printf("Higher priority process received\n");
+                processSend->remainingTime=runningProcessRemainingTime-getClk()+processSend->startTime;
                 processSend->runTime -= (getClk() - processSend->startTime);
                 kill(runningProcessPid, SIGSTOP);
                 processSend->state = STOPPED;
