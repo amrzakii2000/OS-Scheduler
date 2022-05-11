@@ -24,18 +24,22 @@ void recieveMultiLevelProcesses();
 
 int AlgoType;
 int quantum;
+int processesCount;
 struct Queue *processesQueue;
 bool recivedAllProcesses = false;
 bool currentRunning = false;
 int pGeneratorToSchedulerQueue;
 struct Process *processSend;
 FILE *schedulerLog;
+FILE *schedulerPerf;
 int rec_process = 1;
 struct Process *p = NULL;
 struct processMsgBuff message;
 struct Queue **multiLevelQueue;
 int runningProcessPid;
 int runningProcessRemainingTime;
+int totalWaitingTime = 0;
+float totalWeightedTurnAroundTime = 0;
 
 int main(int argc, char *argv[])
 {
@@ -46,7 +50,9 @@ int main(int argc, char *argv[])
     initClk();
     AlgoType = atoi(argv[1]);
     quantum = atoi(argv[2]);
+    processesCount = atoi(argv[3]);
     schedulerLog = fopen("scheduler.log", "w");
+
     switch (AlgoType)
     {
     case 1:
@@ -64,8 +70,15 @@ int main(int argc, char *argv[])
     default:
         break;
     }
+
     fprintf(schedulerLog, "At time %d all processes finished\n", getClk());
     fclose(schedulerLog);
+
+    schedulerPerf = fopen("scheduler.perf", "w");
+    fprintf(schedulerPerf, "Average WT: %.2f\n", (float)totalWaitingTime / processesCount);
+    fprintf(schedulerPerf, "Average WTA: %.2f\n", totalWeightedTurnAroundTime / processesCount);
+    fclose(schedulerPerf);
+
     raise(SIGINT);
     return 0;
 }
@@ -308,6 +321,8 @@ void childHandler(int signum)
         processSend->finishTime = getClk();
         float turnAround = processSend->finishTime - processSend->arrivalTime;
         float weightedTurnAround = turnAround / processSend->runTime;
+        totalWaitingTime += processSend->waitTime;
+        totalWeightedTurnAroundTime += weightedTurnAround;
         fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d TA %.2f WTA %.2f\n", getClk(), processSend->id, getProcessStateText(processSend->state), processSend->arrivalTime, processSend->runTime, processSend->remainingTime, processSend->waitTime, turnAround, weightedTurnAround);
     }
 }
