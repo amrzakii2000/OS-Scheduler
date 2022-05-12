@@ -13,7 +13,6 @@ int main(int agrc, char *argv[])
     signal(SIGCONT, contHandler);
     runTime = atoi(argv[1]);
     timeQuantum = atoi(argv[2]);
-    // printf("Current of process %d Runtime: %d at clock: %d\n", getpid(), runTime, getClk());
 
     currentClk = getClk();
     while (runTime > 0)
@@ -24,7 +23,6 @@ int main(int agrc, char *argv[])
         {
             currentClk = getClk();
             --runTime;
-            // printf ("\ncurrent clk is %d and remaining time is %d\n", currentClk, remainingTime);
         }
     }
     kill(getppid(), SIGUSR2);
@@ -32,6 +30,7 @@ int main(int agrc, char *argv[])
     return 0;
 }
 
+//Save current clock when continue signal is recieved
 void contHandler(int signum)
 {
     currentClk = getClk();

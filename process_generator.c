@@ -20,6 +20,8 @@ int main(int argc, char *argv[])
     // 2. Read the chosen scheduling algorithm and its parameters, if there are any from the argument list.
     int algorithm = -1;
     int quantum = 2;
+
+    // Used to read options from the command line
     readOptions(&algorithm, &quantum, argc, argv);
 
     // 3. Initiate and create the scheduler and clock processes.
@@ -48,19 +50,23 @@ int main(int argc, char *argv[])
 
         sprintf(algorithmName, "%d", algorithm);
         sprintf(quantumName, "%d", quantum);
-        sprintf(processCountName, "%d",size);
+        sprintf(processCountName, "%d", size);
 
         execl("./scheduler.out", "./scheduler.out", algorithmName, quantumName, processCountName, NULL);
     }
 
+    // Initiate clock communication
     initClk();
     startTime = getClk();
+
     if (processesQueue->front->arrivalTime - startTime > 0)
     {
+        // Sleep till the time of the next process
         alarm(processesQueue->front->arrivalTime - startTime);
         pause();
     }
 
+    // Send the processes
     while (!isEmpty(processesQueue))
     {
         int currentTime = getClk();
@@ -72,7 +78,8 @@ int main(int argc, char *argv[])
 
         if (isEmpty(processesQueue))
             break;
-        
+
+        // Sleep till next process arrival
         int waitingTime = processesQueue->front->arrivalTime - getClk();
         if (waitingTime > 0)
         {
@@ -80,6 +87,8 @@ int main(int argc, char *argv[])
             pause();
         }
     }
+
+    // Send a signal to scheduler confirming that all processes are sent
     kill(schedulerPid, SIGUSR1);
     destroyClk(false);
     pause();
@@ -163,6 +172,7 @@ void alarmHandler(int signum) {}
 
 void clearResources(int signum)
 {
+    free(processesQueue);
     destroyClk(true);
     exit(0);
 }

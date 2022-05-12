@@ -137,7 +137,7 @@ struct Queue
 
 struct Queue *createQueue()
 {
-    struct Queue *q = (struct Queue *)malloc(8 * sizeof(struct Queue));
+    struct Queue *q = (struct Queue *)malloc(sizeof(struct Queue));
     q->front = q->rear = NULL;
     return q;
 }
