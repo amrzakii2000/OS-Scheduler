@@ -73,6 +73,7 @@ int main(int argc, char *argv[])
     processesCount = atoi(argv[3]);
 
     schedulerLog = fopen("scheduler.log", "w");
+    memoryLog = fopen("memory.log", "w");
 
     switch (AlgoType)
     {
