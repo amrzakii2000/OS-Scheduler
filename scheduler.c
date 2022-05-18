@@ -533,6 +533,26 @@ void recieveProcessHPF()
                     }
                 }
             }
+            freeSpace = checkMemory(p);
+            if (freeSpace)
+            {
+                // If a process with higher priority arrives, interrupt the current running process
+                if (processSend && p->priority < processSend->priority)
+                {
+                    processSend->remainingTime = runningProcessRemainingTime - getClk() + processSend->startTime;
+                    kill(runningProcessPid, SIGSTOP);
+                    processSend->state = STOPPED;
+                    processSend->stoppingTime = getClk();
+                    fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d\n", getClk(), processSend->id, getProcessStateText(processSend->state), processSend->arrivalTime, processSend->runTime, processSend->remainingTime, processSend->waitTime);
+                    currentRunning = false;
+                    insertByPriority(processesQueue, processSend);
+                }
+                insertByPriority(processesQueue, p);
+                fprintf(memoryLog, "#At time %d allocated %d bytes for process %d from %d to %d\n", getClk(), p->memSize, p->id, p->memStart, p->memEnd);
+            }
+            else
+                enqueue(diskQueue, p);
+            fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d\n", getClk(), p->id, getProcessStateText(p->state), p->arrivalTime, p->runTime, p->remainingTime, p->waitTime);
             break;
         }
     }
