@@ -6,6 +6,8 @@
 #define HIGHEST_PRIORITY_FIRST 2
 #define ROUND_ROBIN 3
 #define MULTILEVEL_FEEDBACK_QUEUE 4
+#define MAXMEMSIZE 1024
+
 
 void clearResources(int);
 void SJF();
