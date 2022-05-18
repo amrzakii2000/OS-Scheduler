@@ -863,7 +863,10 @@ bool checkMemory(struct Process *p)
     while (iterator != NULL)
     {
         if (iterator->full)
+        {
             iterator = iterator->next;
+            continue;
+        }
         if (iterator->start == start)
         {
             while ((iterator->end - iterator->start) / 2 >= p->memSize)
@@ -929,65 +932,62 @@ void freeMemory(struct Process *p)
 {
 
     struct Pair *iterator = memoryQueue->front;
-    printf("memqueue front start %d\n",  memoryQueue->front->start);
-    printf("memqueue front end %d\n",  memoryQueue->front->end);
-    
+
     while (iterator != NULL)
     {
         if (iterator->start == p->memStart && iterator->end == p->memEnd)
         {
             printf("Freeing memory for process %d\n", p->id);
-            if (iterator->prev)
-            {
-                printf("Prev start: %d\n", iterator->prev->start);
-                printf("Prev end: %d\n", iterator->prev->end);
-                printf("Prev full: %d\n", iterator->prev->full);
-                printf("iterator start: %d\n", iterator->start);
-                printf("iterator end: %d\n", iterator->end);
-                printf("iterator full: %d\n", iterator->full);
+            // if (iterator->prev)
+            // {
+            //     printf("Prev start: %d\n", iterator->prev->start);
+            //     printf("Prev end: %d\n", iterator->prev->end);
+            //     printf("Prev full: %d\n", iterator->prev->full);
+            //     printf("iterator start: %d\n", iterator->start);
+            //     printf("iterator end: %d\n", iterator->end);
+            //     printf("iterator full: %d\n", iterator->full);
+            // }
+            // if (iterator->next)
+            // {
+            //     printf("next start: %d\n", iterator->next->start);
+            //     printf("next end: %d\n", iterator->next->end);
+            //     printf("next full: %d\n", iterator->next->full);
+            //     printf("iterator start: %d\n", iterator->start);
+            //     printf("iterator end: %d\n", iterator->end);
+            //     printf("iterator full: %d\n", iterator->full);
+            // }
+            iterator->full = false;
 
-            }
-            if (iterator->next)
-            {
-                printf("next start: %d\n", iterator->next->start);
-                printf("next end: %d\n", iterator->next->end);
-                printf("next full: %d\n", iterator->next->full);
-                printf("iterator start: %d\n", iterator->start);
-                printf("iterator end: %d\n", iterator->end);
-                printf("iterator full: %d\n", iterator->full);
+            // if (iterator->prev != NULL && iterator->prev->full == false && (iterator->prev->end - iterator->prev->start) == iterator->end - iterator->start)
+            // {
+            //     printf("Merging with previous\n");
 
-            }
-            iterator->full=false;
-
-            if (iterator->prev != NULL && iterator->prev->full == false && (iterator->prev->end - iterator->prev->start) == iterator->end - iterator->start)
-            {
-                printf("Merging with previous\n");
-
-                iterator->prev->end = iterator->end;
-                iterator->prev->next = iterator->next;
-                if (iterator->next != NULL)
-                    iterator->next->prev = iterator->prev;
-                else
-                    memoryQueue->rear = iterator->prev;
-            }
-            else if (iterator->next != NULL && iterator->next->full == false && (iterator->next->end - iterator->next->start) == iterator->end - iterator->start)
-            {
-                printf("Merging with next\n");
-                iterator->next->start = iterator->start;
-                iterator->next->prev = iterator->prev;
-                if (iterator->prev != NULL)
-                    iterator->prev->next = iterator->next;
-                else
-                    memoryQueue->front = iterator->next;
-            }
-            else
-            {
-                iterator->full = false;
-            }
-            printMemQueue(memoryQueue);
-
+            //     iterator->prev->end = iterator->end;
+            //     iterator->prev->next = iterator->next;
+            //     if (iterator->next != NULL)
+            //         iterator->next->prev = iterator->prev;
+            //     else
+            //         memoryQueue->rear = iterator->prev;
+            // }
             break;
         }
         iterator = iterator->next;
     }
+
+    iterator = memoryQueue->front;
+    while (iterator->next != NULL)
+    {
+        if (iterator->next != NULL && iterator->next->full == false && (iterator->next->end - iterator->next->start) == iterator->end - iterator->start)
+        {
+            printf("Merging with next\n");
+            iterator->next->start = iterator->start;
+            iterator->next->prev = iterator->prev;
+            if (iterator->prev != NULL)
+                iterator->prev->next = iterator->next;
+            else
+                memoryQueue->front = iterator->next;
+        }
+        iterator = iterator->next;
+    }
+    printMemQueue(memoryQueue);
 }
