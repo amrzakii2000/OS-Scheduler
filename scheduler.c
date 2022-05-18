@@ -111,6 +111,8 @@ void SJF()
 {
     fprintf(schedulerLog, "----------          SJF algorithm started          ---------\n");
     fprintf(schedulerLog, "At time x process y state arr w total z remain y wait k\n\n");
+    fprintf(memoryLog, "#At time x allocated y bytes for process z from i to j\n\n");
+
     processesQueue = createQueue();
 
     // Intialize IPC
