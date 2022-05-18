@@ -72,6 +72,56 @@ enum ProccessState
     FINISHED
 };
 
+struct Pair
+{
+    int start;
+    int end;
+    struct Pair *next;
+    struct Pair *prev;
+    bool full;
+};
+
+struct Pair *createPair()
+{
+    struct Pair *p = (struct Pair *)malloc(sizeof(struct Pair));
+    p->start = -1;
+    p->end = -1;
+    p->next = NULL;
+    p->prev = NULL;
+    p->full = false;
+    return p;
+};
+
+struct memQueue
+{
+    struct Pair *front;
+    struct Pair *rear;
+};
+
+struct memQueue *createMemQueue()
+{
+    struct Pair *p = createPair();
+    p->start = 0;
+    p->end = 1023;
+    struct memQueue *q = (struct memQueue *)malloc(sizeof(struct memQueue));
+    q->front = p;
+    q->rear = q->front;
+    return q;
+};
+
+void addPair(struct memQueue *q, struct Pair *exist, struct Pair *added)
+{
+    int temp = (exist->end - exist->start) / 2;
+    exist->end = exist->start + temp;
+    added->start = exist->end;
+    added->end = added->start + temp;
+    added->next = exist->next;
+    added->prev = exist;
+    exist->next = added;
+};
+
+
+
 struct Process
 {
     int id;
@@ -107,7 +157,7 @@ struct Process *createProcess(int id, int priority, int runTime, int arrivalTime
     p->memSize = memSize;
     for (int i = 0; i < 10; i++)
     {
-        int temp = 0;
+        int temp = 1;
         for (int j = 0; j < i; j++)
         {
             temp = temp * 2;

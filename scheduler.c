@@ -50,6 +50,7 @@ int idleClockCycles = 0;
 struct Queue *diskQueue;
 FILE *memoryLog;
 bool memory[MAXMEMSIZE] = {false};
+struct memQueue *memoryQueue;
 
 int main(int argc, char *argv[])
 {
@@ -114,6 +115,9 @@ void SJF()
     fprintf(memoryLog, "#At time x allocated y bytes for process z from i to j\n\n");
 
     processesQueue = createQueue();
+    memoryQueue = createMemQueue();
+
+    diskQueue = createQueue();
 
     // Intialize IPC
     pGeneratorToSchedulerQueue = msgget(1234, 0666 | IPC_CREAT);
@@ -167,6 +171,10 @@ void HPF()
     fprintf(memoryLog, "#At time x allocated y bytes for process z from i to j\n\n");
 
     processesQueue = createQueue();
+    memoryQueue = createMemQueue();
+
+    diskQueue = createQueue();
+
     pGeneratorToSchedulerQueue = msgget(1234, 0666 | IPC_CREAT);
 
     if (pGeneratorToSchedulerQueue == -1)
@@ -228,6 +236,10 @@ void RR(int quantum)
     fprintf(schedulerLog, "At time x process y state arr w total z remain y wait k\n\n");
     fprintf(memoryLog, "#At time x allocated y bytes for process z from i to j\n\n");
     processesQueue = createQueue();
+    memoryQueue = createMemQueue();
+
+    diskQueue = createQueue();
+
     pGeneratorToSchedulerQueue = msgget(1234, 0666 | IPC_CREAT);
     // signal(SIGCHLD, childHandler);
 
@@ -306,6 +318,9 @@ void MLFQ(int quantum)
 
     // Memory allocation for multilievel feedback queue
     InitializeMultiLevelQueue();
+    memoryQueue = createMemQueue();
+    diskQueue = createQueue();
+
     while (1)
     {
         // Recive arriving process in its corressponding level
@@ -383,7 +398,7 @@ void childHandler(int signum)
         totalWeightedTurnAroundTime += weightedTurnAround;
         fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d TA %.2f WTA %.2f\n", getClk(), processSend->id, getProcessStateText(processSend->state), processSend->arrivalTime, processSend->runTime, processSend->remainingTime, processSend->waitTime, turnAround, weightedTurnAround);
         fprintf(memoryLog, "#At time %d freed %d bytes from process %d from %d to %d\n", getClk(), processSend->memSize, processSend->id, processSend->memStart, processSend->memEnd);
-        for (int i = processSend->memStart; i < processSend->memEnd; i++)
+        for (int i = processSend->memStart; i < processSend->memEnd + 1; i++)
         {
             memory[i] = false;
         }
@@ -401,6 +416,7 @@ void clearResources(int signum)
         free(multiLevelQueue);
     }
     free(processesQueue);
+    free(diskQueue);
     msgctl(pGeneratorToSchedulerQueue, IPC_RMID, (struct msqid_ds *)0);
     destroyClk(true);
     exit(0);
@@ -408,154 +424,243 @@ void clearResources(int signum)
 
 void recieveProcess()
 {
-    while (rec_process != -1)
+    rec_process = msgrcv(pGeneratorToSchedulerQueue, &message, sizeof(message.process), 0, IPC_NOWAIT);
+    if (rec_process == -1)
     {
-        rec_process = msgrcv(pGeneratorToSchedulerQueue, &message, sizeof(message.process), 0, IPC_NOWAIT);
-        if (rec_process == -1)
+        rec_process = 1;
+    }
+    else
+    {
+        p = createProcess(message.process.id, message.process.priority, message.process.runTime, message.process.arrivalTime, message.process.memSize);
+        if (AlgoType == SHORTEST_JOB_FIRST)
         {
-            rec_process = 1;
-            break;
+            bool freeSpace = false;
+            // if (!isEmpty(diskQueue))
+            // {
+            //     printf("Disk queue is not empty\n");
+            //     printf("Disk queue size: %d\n", getQueueSize(diskQueue));
+            //     for (int i = 0; i < getQueueSize(diskQueue); i++)
+            //     {
+            //         struct Process *temp = dequeue(diskQueue);
+            //         freeSpace = checkMemory(temp);
+            //         if (freeSpace)
+            //         {
+            //             insertByRuntime(processesQueue, temp);
+            //             fprintf(memoryLog, "#At time %d allocated %d bytes for process %d from %d to %d\n", getClk(), temp->memSize, temp->id, temp->memStart, temp->memEnd);
+            //             fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d\n", getClk(), temp->id, getProcessStateText(temp->state), temp->arrivalTime, temp->runTime, temp->remainingTime, temp->waitTime);
+            //         }
+            //         else
+            //         {
+            //             enqueue(diskQueue, temp);
+            //         }
+            //     }
+            // }
+            freeSpace = checkMemory(p);
+            if (freeSpace)
+            {
+                insertByRuntime(processesQueue, p);
+                fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d\n", getClk(), p->id, getProcessStateText(p->state), p->arrivalTime, p->runTime, p->remainingTime, p->waitTime);
+                fprintf(memoryLog, "#At time %d allocated %d bytes for process %d from %d to %d\n", getClk(), p->memSize, p->id, p->memStart, p->memEnd);
+            }
+            else
+            {
+                printf("No free space\n");
+                enqueue(diskQueue, p);
+            }
         }
-        else
-        {
-            p = createProcess(message.process.id, message.process.priority, message.process.runTime, message.process.arrivalTime, message.process.memSize);
-            if (AlgoType == SHORTEST_JOB_FIRST)
-            {
-                bool freeSpace = false;
-                if (!isEmpty(diskQueue))
-                {
-                    for (int i = 0; i < getQueueSize(diskQueue); i++)
-                    {
-                        struct Process *temp = dequeue(diskQueue);
-                        freeSpace = checkMemory(temp);
-                        if (freeSpace)
-                        {
-                            insertByRuntime(processesQueue, temp);
-                            fprintf(memoryLog, "#At time %d allocated %d bytes for process %d from %d to %d\n", getClk(), temp->memSize, temp->id, temp->memStart, temp->memEnd);
-                            fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d\n", getClk(), p->id, getProcessStateText(p->state), p->arrivalTime, p->runTime, p->remainingTime, p->waitTime);
-                        }
-                        else
-                        {
-                            enqueue(diskQueue, temp);
-                        }
-                    }
-                }
-                freeSpace = checkMemory(p);
-                if (freeSpace)
-                {
-                    insertByRuntime(processesQueue, p);
-                    fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d\n", getClk(), p->id, getProcessStateText(p->state), p->arrivalTime, p->runTime, p->remainingTime, p->waitTime);
-                    fprintf(memoryLog, "#At time %d allocated %d bytes for process %d from %d to %d\n", getClk(), p->memSize, p->id, p->memStart, p->memEnd);
-                }
-            }
 
-            else if (AlgoType == ROUND_ROBIN)
+        else if (AlgoType == ROUND_ROBIN)
+        {
+            bool freeSpace = false;
+            // if (!isEmpty(diskQueue))
+            // {
+            //     for (int i = 0; i < getQueueSize(diskQueue); i++)
+            //     {
+            //         struct Process *temp = dequeue(diskQueue);
+            //         freeSpace = checkMemory(temp);
+            //         if (freeSpace)
+            //         {
+            //             fprintf(memoryLog, "#At time %d allocated %d bytes for process %d from %d to %d\n", getClk(), temp->memSize, temp->id, temp->memStart, temp->memEnd);
+            //             fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d\n", getClk(), p->id, getProcessStateText(p->state), p->arrivalTime, p->runTime, p->remainingTime, p->waitTime);
+            //             enqueue(processesQueue, temp);
+            //         }
+            //         else
+            //         {
+            //             enqueue(diskQueue, temp);
+            //         }
+            //     }
+            // }
+            freeSpace = checkMemory(p);
+            if (freeSpace)
             {
-                bool freeSpace = false;
-                if (!isEmpty(diskQueue))
-                {
-                    for (int i = 0; i < getQueueSize(diskQueue); i++)
-                    {
-                        struct Process *temp = dequeue(diskQueue);
-                        freeSpace = checkMemory(temp);
-                        if (freeSpace)
-                        {
-                            fprintf(memoryLog, "#At time %d allocated %d bytes for process %d from %d to %d\n", getClk(), temp->memSize, temp->id, temp->memStart, temp->memEnd);
-                            enqueue(processesQueue, temp);
-                        }
-                        else
-                        {
-                            enqueue(diskQueue, temp);
-                        }
-                    }
-                }
+                enqueue(processesQueue, p);
+                fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d\n", getClk(), p->id, getProcessStateText(p->state), p->arrivalTime, p->runTime, p->remainingTime, p->waitTime);
+                fprintf(memoryLog, "#At time %d allocated %d bytes for process %d from %d to %d\n", getClk(), p->memSize, p->id, p->memStart, p->memEnd);
             }
-            break;
+            else
+            {
+                enqueue(diskQueue, p);
+            }
         }
     }
+
+    // if (AlgoType == SHORTEST_JOB_FIRST)
+    // {
+    //     bool freeSpace = false;
+
+    //     if (!isEmpty(diskQueue))
+    //     {
+    //         printf("Disk queue is not empty\n");
+    //         printf("Disk queue size: %d\n", getQueueSize(diskQueue));
+    //         for (int i = 0; i < getQueueSize(diskQueue); i++)
+    //         {
+    //             struct Process *temp = dequeue(diskQueue);
+    //             freeSpace = checkMemory(temp);
+    //             if (freeSpace)
+    //             {
+    //                 insertByRuntime(processesQueue, temp);
+    //                 fprintf(memoryLog, "#At time %d allocated %d bytes for process %d from %d to %d\n", getClk(), temp->memSize, temp->id, temp->memStart, temp->memEnd);
+    //                 fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d\n", getClk(), temp->id, getProcessStateText(temp->state), temp->arrivalTime, temp->runTime, temp->remainingTime, temp->waitTime);
+    //             }
+    //             else
+    //             {
+    //                 enqueue(diskQueue, temp);
+    //             }
+    //         }
+    //     }
+    // }
+    // else if (AlgoType == ROUND_ROBIN)
+    // {
+    //     bool freeSpace = false;
+    //     if (!isEmpty(diskQueue))
+    //     {
+    //         for (int i = 0; i < getQueueSize(diskQueue); i++)
+    //         {
+    //             struct Process *temp = dequeue(diskQueue);
+    //             freeSpace = checkMemory(temp);
+    //             if (freeSpace)
+    //             {
+    //                 fprintf(memoryLog, "#At time %d allocated %d bytes for process %d from %d to %d\n", getClk(), temp->memSize, temp->id, temp->memStart, temp->memEnd);
+    //                 fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d\n", getClk(), p->id, getProcessStateText(p->state), p->arrivalTime, p->runTime, p->remainingTime, p->waitTime);
+    //                 enqueue(processesQueue, temp);
+    //             }
+    //             else
+    //             {
+    //                 enqueue(diskQueue, temp);
+    //             }
+    //         }
+    //     }
+    // }
 }
 
 void recieveProcessHPF()
 {
-    while (rec_process != -1)
+    rec_process = msgrcv(pGeneratorToSchedulerQueue, &message, sizeof(message.process), 0, IPC_NOWAIT);
+    if (rec_process == -1)
     {
-        rec_process = msgrcv(pGeneratorToSchedulerQueue, &message, sizeof(message.process), 0, IPC_NOWAIT);
-        if (rec_process == -1)
+        rec_process = 1;
+    }
+    else
+    {
+
+        p = createProcess(message.process.id, message.process.priority, message.process.runTime, message.process.arrivalTime, message.process.memSize);
+
+        // If a process with higher priority arrives, interrupt the current running process
+        // if (processSend && p->priority < processSend->priority)
+        // {
+        //     processSend->remainingTime = runningProcessRemainingTime - getClk() + processSend->startTime;
+        //     kill(runningProcessPid, SIGSTOP);
+        //     processSend->state = STOPPED;
+        //     processSend->stoppingTime = getClk();
+        //     fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d\n", getClk(), processSend->id, getProcessStateText(processSend->state), processSend->arrivalTime, processSend->runTime, processSend->remainingTime, processSend->waitTime);
+        //     currentRunning = false;
+        //     insertByPriority(processesQueue, processSend);
+        // }
+
+        bool freeSpace = false;
+        // if (!isEmpty(diskQueue))
+        // {
+        //     for (int i = 0; i < getQueueSize(diskQueue); i++)
+        //     {
+        //         struct Process *temp = dequeue(diskQueue);
+        //         freeSpace = checkMemory(temp);
+        //         if (freeSpace)
+        //         {
+        //             // If a process with higher priority arrives, interrupt the current running process
+
+        //             if (processSend && temp->priority < processSend->priority)
+        //             {
+        //                 processSend->remainingTime = runningProcessRemainingTime - getClk() + processSend->startTime;
+        //                 kill(runningProcessPid, SIGSTOP);
+        //                 processSend->state = STOPPED;
+        //                 processSend->stoppingTime = getClk();
+        //                 fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d\n", getClk(), processSend->id, getProcessStateText(processSend->state), processSend->arrivalTime, processSend->runTime, processSend->remainingTime, processSend->waitTime);
+        //                 currentRunning = false;
+        //                 insertByPriority(processesQueue, processSend);
+        //             }
+        //             insertByPriority(processesQueue, temp);
+        //             fprintf(memoryLog, "#At time %d allocated %d bytes for process %d from %d to %d\n", getClk(), temp->memSize, temp->id, temp->memStart, temp->memEnd);
+        //             fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d\n", getClk(), p->id, getProcessStateText(p->state), p->arrivalTime, p->runTime, p->remainingTime, p->waitTime);
+        //         }
+        //         else
+        //         {
+        //             enqueue(diskQueue, temp);
+        //         }
+        //     }
+        // }
+        freeSpace = checkMemory(p);
+        if (freeSpace)
         {
-            rec_process = 1;
-            break;
+            // If a process with higher priority arrives, interrupt the current running process
+            if (processSend && p->priority < processSend->priority)
+            {
+                processSend->remainingTime = runningProcessRemainingTime - getClk() + processSend->startTime;
+                kill(runningProcessPid, SIGSTOP);
+                processSend->state = STOPPED;
+                processSend->stoppingTime = getClk();
+                fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d\n", getClk(), processSend->id, getProcessStateText(processSend->state), processSend->arrivalTime, processSend->runTime, processSend->remainingTime, processSend->waitTime);
+                currentRunning = false;
+                insertByPriority(processesQueue, processSend);
+            }
+            insertByPriority(processesQueue, p);
+            fprintf(memoryLog, "#At time %d allocated %d bytes for process %d from %d to %d\n", getClk(), p->memSize, p->id, p->memStart, p->memEnd);
+            fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d\n", getClk(), p->id, getProcessStateText(p->state), p->arrivalTime, p->runTime, p->remainingTime, p->waitTime);
         }
         else
-        {
-
-            p = createProcess(message.process.id, message.process.priority, message.process.runTime, message.process.arrivalTime, message.process.memSize);
-
-            // If a process with higher priority arrives, interrupt the current running process
-            // if (processSend && p->priority < processSend->priority)
-            // {
-            //     processSend->remainingTime = runningProcessRemainingTime - getClk() + processSend->startTime;
-            //     kill(runningProcessPid, SIGSTOP);
-            //     processSend->state = STOPPED;
-            //     processSend->stoppingTime = getClk();
-            //     fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d\n", getClk(), processSend->id, getProcessStateText(processSend->state), processSend->arrivalTime, processSend->runTime, processSend->remainingTime, processSend->waitTime);
-            //     currentRunning = false;
-            //     insertByPriority(processesQueue, processSend);
-            // }
-
-            bool freeSpace = false;
-            if (!isEmpty(diskQueue))
-            {
-                for (int i = 0; i < getQueueSize(diskQueue); i++)
-                {
-                    struct Process *temp = dequeue(diskQueue);
-                    freeSpace = checkMemory(temp);
-                    if (freeSpace)
-                    {
-                        // If a process with higher priority arrives, interrupt the current running process
-
-                        if (processSend && temp->priority < processSend->priority)
-                        {
-                            processSend->remainingTime = runningProcessRemainingTime - getClk() + processSend->startTime;
-                            kill(runningProcessPid, SIGSTOP);
-                            processSend->state = STOPPED;
-                            processSend->stoppingTime = getClk();
-                            fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d\n", getClk(), processSend->id, getProcessStateText(processSend->state), processSend->arrivalTime, processSend->runTime, processSend->remainingTime, processSend->waitTime);
-                            currentRunning = false;
-                            insertByPriority(processesQueue, processSend);
-                        }
-                        insertByPriority(processesQueue, temp);
-                        fprintf(memoryLog, "#At time %d allocated %d bytes for process %d from %d to %d\n", getClk(), temp->memSize, temp->id, temp->memStart, temp->memEnd);
-                        fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d\n", getClk(), p->id, getProcessStateText(p->state), p->arrivalTime, p->runTime, p->remainingTime, p->waitTime);
-                    }
-                    else
-                    {
-                        enqueue(diskQueue, temp);
-                    }
-                }
-            }
-            freeSpace = checkMemory(p);
-            if (freeSpace)
-            {
-                // If a process with higher priority arrives, interrupt the current running process
-                if (processSend && p->priority < processSend->priority)
-                {
-                    processSend->remainingTime = runningProcessRemainingTime - getClk() + processSend->startTime;
-                    kill(runningProcessPid, SIGSTOP);
-                    processSend->state = STOPPED;
-                    processSend->stoppingTime = getClk();
-                    fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d\n", getClk(), processSend->id, getProcessStateText(processSend->state), processSend->arrivalTime, processSend->runTime, processSend->remainingTime, processSend->waitTime);
-                    currentRunning = false;
-                    insertByPriority(processesQueue, processSend);
-                }
-                insertByPriority(processesQueue, p);
-                fprintf(memoryLog, "#At time %d allocated %d bytes for process %d from %d to %d\n", getClk(), p->memSize, p->id, p->memStart, p->memEnd);
-            }
-            else
-                enqueue(diskQueue, p);
-            fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d\n", getClk(), p->id, getProcessStateText(p->state), p->arrivalTime, p->runTime, p->remainingTime, p->waitTime);
-            break;
-        }
+            enqueue(diskQueue, p);
     }
+
+    // bool freeSpace = false;
+    // if (!isEmpty(diskQueue))
+    // {
+    //     for (int i = 0; i < getQueueSize(diskQueue); i++)
+    //     {
+    //         struct Process *temp = dequeue(diskQueue);
+    //         freeSpace = checkMemory(temp);
+    //         if (freeSpace)
+    //         {
+    //             // If a process with higher priority arrives, interrupt the current running process
+
+    //             if (processSend && temp->priority < processSend->priority)
+    //             {
+    //                 processSend->remainingTime = runningProcessRemainingTime - getClk() + processSend->startTime;
+    //                 kill(runningProcessPid, SIGSTOP);
+    //                 processSend->state = STOPPED;
+    //                 processSend->stoppingTime = getClk();
+    //                 fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d\n", getClk(), processSend->id, getProcessStateText(processSend->state), processSend->arrivalTime, processSend->runTime, processSend->remainingTime, processSend->waitTime);
+    //                 currentRunning = false;
+    //                 insertByPriority(processesQueue, processSend);
+    //             }
+    //             insertByPriority(processesQueue, temp);
+    //             fprintf(memoryLog, "#At time %d allocated %d bytes for process %d from %d to %d\n", getClk(), temp->memSize, temp->id, temp->memStart, temp->memEnd);
+    //             fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d\n", getClk(), p->id, getProcessStateText(p->state), p->arrivalTime, p->runTime, p->remainingTime, p->waitTime);
+    //         }
+    //         else
+    //         {
+    //             enqueue(diskQueue, temp);
+    //         }
+    //     }
+    // }
 }
 
 void recieveMultiLevelProcesses()
@@ -573,36 +678,36 @@ void recieveMultiLevelProcesses()
 
             p = createProcess(message.process.id, message.process.priority, message.process.runTime, message.process.arrivalTime, message.process.memSize);
             bool freeSpace = false;
-            if (!isEmpty(diskQueue))
-            {
-                for (int i = 0; i < getQueueSize(diskQueue); i++)
-                {
-                    struct Process *temp = dequeue(diskQueue);
-                    freeSpace = checkMemory(temp);
-                    if (freeSpace)
-                    {
-                        enqueue(multiLevelQueue[temp->priority], p);
-                        fprintf(memoryLog, "#At time %d allocated %d bytes for process %d from %d to %d\n", getClk(), temp->memSize, temp->id, temp->memStart, temp->memEnd);
-                        fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d\n", getClk(), p->id, getProcessStateText(p->state), p->arrivalTime, p->runTime, p->remainingTime, p->waitTime);
+            // if (!isEmpty(diskQueue))
+            // {
+            //     for (int i = 0; i < getQueueSize(diskQueue); i++)
+            //     {
+            //         struct Process *temp = dequeue(diskQueue);
+            //         freeSpace = checkMemory(temp);
+            //         if (freeSpace)
+            //         {
+            //             enqueue(multiLevelQueue[temp->priority], p);
+            //             fprintf(memoryLog, "#At time %d allocated %d bytes for process %d from %d to %d\n", getClk(), temp->memSize, temp->id, temp->memStart, temp->memEnd);
+            //             fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d\n", getClk(), p->id, getProcessStateText(p->state), p->arrivalTime, p->runTime, p->remainingTime, p->waitTime);
 
-                        // Check if a process of higher priority arrived
-                        if (currentRunning && processSend && p->priority < processSend->priority)
-                        {
-                            processSend->remainingTime = runningProcessRemainingTime - getClk() + processSend->startTime;
-                            kill(runningProcessPid, SIGSTOP);
-                            processSend->state = STOPPED;
-                            processSend->stoppingTime = getClk();
-                            fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d\n", getClk(), processSend->id, getProcessStateText(processSend->state), processSend->arrivalTime, processSend->runTime, processSend->remainingTime, processSend->waitTime);
-                            currentRunning = false;
-                            enqueue(multiLevelQueue[processSend->priority], processSend);
-                        }
-                    }
-                    else
-                    {
-                        enqueue(diskQueue, temp);
-                    }
-                }
-            }
+            //             // Check if a process of higher priority arrived
+            //             if (currentRunning && processSend && p->priority < processSend->priority)
+            //             {
+            //                 processSend->remainingTime = runningProcessRemainingTime - getClk() + processSend->startTime;
+            //                 kill(runningProcessPid, SIGSTOP);
+            //                 processSend->state = STOPPED;
+            //                 processSend->stoppingTime = getClk();
+            //                 fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d\n", getClk(), processSend->id, getProcessStateText(processSend->state), processSend->arrivalTime, processSend->runTime, processSend->remainingTime, processSend->waitTime);
+            //                 currentRunning = false;
+            //                 enqueue(multiLevelQueue[processSend->priority], processSend);
+            //             }
+            //         }
+            //         else
+            //         {
+            //             enqueue(diskQueue, temp);
+            //         }
+            //     }
+            // }
 
             freeSpace = checkMemory(p);
             if (freeSpace)
@@ -640,6 +745,38 @@ void recieveMultiLevelProcesses()
             break;
         }
     }
+
+    // bool freeSpace = false;
+    // if (!isEmpty(diskQueue))
+    // {
+    //     for (int i = 0; i < getQueueSize(diskQueue); i++)
+    //     {
+    //         struct Process *temp = dequeue(diskQueue);
+    //         freeSpace = checkMemory(temp);
+    //         if (freeSpace)
+    //         {
+    //             enqueue(multiLevelQueue[temp->priority], p);
+    //             fprintf(memoryLog, "#At time %d allocated %d bytes for process %d from %d to %d\n", getClk(), temp->memSize, temp->id, temp->memStart, temp->memEnd);
+    //             fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d\n", getClk(), p->id, getProcessStateText(p->state), p->arrivalTime, p->runTime, p->remainingTime, p->waitTime);
+
+    //             // Check if a process of higher priority arrived
+    //             if (currentRunning && processSend && p->priority < processSend->priority)
+    //             {
+    //                 processSend->remainingTime = runningProcessRemainingTime - getClk() + processSend->startTime;
+    //                 kill(runningProcessPid, SIGSTOP);
+    //                 processSend->state = STOPPED;
+    //                 processSend->stoppingTime = getClk();
+    //                 fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d\n", getClk(), processSend->id, getProcessStateText(processSend->state), processSend->arrivalTime, processSend->runTime, processSend->remainingTime, processSend->waitTime);
+    //                 currentRunning = false;
+    //                 enqueue(multiLevelQueue[processSend->priority], processSend);
+    //             }
+    //         }
+    //         else
+    //         {
+    //             enqueue(diskQueue, temp);
+    //         }
+    //     }
+    // }
 }
 
 void InitializeMultiLevelQueue()
@@ -693,46 +830,89 @@ void countClockCycles()
         printf("Idle Cycles: %d\n", idleClockCycles);
     }
 }
-
 bool checkMemory(struct Process *p)
 {
+    struct Pair *iterator = memoryQueue->front;
     int min = INT_MAX;
-    int c = 0;
     int start = 0;
-    int end = 0;
-    for (int i = 0; i < MAXMEMSIZE; i++)
+    int c = 0;
+    while (iterator != NULL)
     {
-        if (memory[i] == false)
-        {
-            c++;
-        }
-        else
-        {
+        if (iterator->full)
+            iterator = iterator->next;
 
-            if (c >= p->memSize)
+        if (iterator->end - iterator->start >= p->memSize)
+        {
+            if (iterator->end - iterator->start < min)
             {
-                if (c < min)
-                {
-                    start = i - c;
-                    end = start + p->actualMemSize;
-                    min = c;
-                }
+                min = iterator->end - iterator->start;
+                start = iterator->start;
             }
-            c = 0;
+            iterator = iterator->next;
         }
     }
     if (min == INT_MAX)
     {
+        printf("No space for process %d\n", p->id);
         return false;
     }
-    else
+    iterator = memoryQueue->front;
+    while (iterator != NULL)
     {
-        for (int i = start; i < end; i++)
+        if (iterator->start == start)
         {
-            memory[i] = true;
+            while ((iterator->end - iterator->start) / 2 >= p->memSize)
+            {
+                struct Pair *new = createPair();
+                addPair(memoryQueue, iterator, new);
+            }
+            iterator->full = true;
+            p->memStart = start;
+            p->memEnd = start + p->actualMemSize;
         }
-        p->memStart = start;
-        p->memEnd = end;
-        return true;
+        iterator = iterator->next;
     }
+    return true;
+
+    // int min = INT_MAX;
+    // int c = 0;
+    // int start = 0;
+    // int end = 0;
+    // for (int i = 0; i < MAXMEMSIZE; i++)
+    // {
+    //     if (memory[i] == false && i < MAXMEMSIZE - 1)
+    //     {
+    //         c++;
+    //     }
+    //     else
+    //     {
+
+    //         if (c >= p->memSize)
+    //         {
+    //             if (c < min)
+    //             {
+    //                 start = i - c;
+    //                 end = start + p->actualMemSize - 1;
+    //                 min = c;
+    //             }
+    //         }
+    //         c = 0;
+    //     }
+    // }
+    // if (min == INT_MAX)
+    // {
+    //     printf("No space for process %d\n", p->id);
+    //     return false;
+    // }
+    // else
+    // {
+    //     for (int i = start; i < end + 1; i++)
+    //     {
+    //         memory[i] = true;
+    //     }
+
+    //     p->memStart = start;
+    //     p->memEnd = end;
+    //     return true;
+    // }
 }
