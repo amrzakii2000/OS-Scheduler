@@ -47,9 +47,9 @@ float totalWeightedTurnAroundTime = 0;
 int currentClock = 0;
 int totalClockCycles = 0;
 int idleClockCycles = 0;
-//struct Queue *diskQueue;
+// struct Queue *diskQueue;
 FILE *memoryLog;
-//bool memory[MAXMEMSIZE] = {false};
+// bool memory[MAXMEMSIZE] = {false};
 struct memQueue *memoryQueue;
 
 int main(int argc, char *argv[])
@@ -117,7 +117,7 @@ void SJF()
     processesQueue = createQueue();
     memoryQueue = createMemQueue();
 
-    //diskQueue = createQueue();
+    // diskQueue = createQueue();
 
     // Intialize IPC
     pGeneratorToSchedulerQueue = msgget(1234, 0666 | IPC_CREAT);
@@ -173,7 +173,7 @@ void HPF()
     processesQueue = createQueue();
     memoryQueue = createMemQueue();
 
-    //diskQueue = createQueue();
+    // diskQueue = createQueue();
 
     pGeneratorToSchedulerQueue = msgget(1234, 0666 | IPC_CREAT);
 
@@ -238,7 +238,7 @@ void RR(int quantum)
     processesQueue = createQueue();
     memoryQueue = createMemQueue();
 
-    //diskQueue = createQueue();
+    // diskQueue = createQueue();
 
     pGeneratorToSchedulerQueue = msgget(1234, 0666 | IPC_CREAT);
     // signal(SIGCHLD, childHandler);
@@ -319,7 +319,7 @@ void MLFQ(int quantum)
     // Memory allocation for multilievel feedback queue
     InitializeMultiLevelQueue();
     memoryQueue = createMemQueue();
-   // diskQueue = createQueue();
+    // diskQueue = createQueue();
 
     while (1)
     {
@@ -416,7 +416,7 @@ void clearResources(int signum)
         free(multiLevelQueue);
     }
     free(processesQueue);
-    //free(diskQueue);
+    // free(diskQueue);
     msgctl(pGeneratorToSchedulerQueue, IPC_RMID, (struct msqid_ds *)0);
     destroyClk(true);
     exit(0);
@@ -838,6 +838,7 @@ bool checkMemory(struct Process *p)
     int c = 0;
     while (iterator != NULL)
     {
+        printf("%d %d\n", iterator->start, iterator->end);
         if (iterator->full)
             iterator = iterator->next;
 
@@ -848,8 +849,8 @@ bool checkMemory(struct Process *p)
                 min = iterator->end - iterator->start;
                 start = iterator->start;
             }
-            iterator = iterator->next;
         }
+        iterator = iterator->next;
     }
     if (min == INT_MAX)
     {
