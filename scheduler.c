@@ -973,11 +973,13 @@ void freeMemory(struct Process *p)
         }
         iterator = iterator->next;
     }
-
+    int c = 0;
+    int num=0;
     iterator = memoryQueue->front;
     while (iterator->next != NULL)
     {
-        if (iterator->next != NULL && iterator->next->full == false && (iterator->next->end - iterator->next->start) == iterator->end - iterator->start)
+
+        if (iterator->next != NULL && iterator->full == false && iterator->next->full == false && (iterator->next->end - iterator->next->start) == iterator->end - iterator->start)
         {
             printf("Merging with next\n");
             iterator->next->start = iterator->start;
@@ -989,5 +991,27 @@ void freeMemory(struct Process *p)
         }
         iterator = iterator->next;
     }
+
+    iterator = memoryQueue->front;
+    while (iterator != NULL)
+    {
+        num++;
+        if (iterator->full == false)
+        {
+            c++;
+        }
+        iterator = iterator->next;
+    }
+    if (num == c)
+    {
+        memoryQueue->front->start=0;
+        memoryQueue->front->end=MAXMEMSIZE;
+        memoryQueue->front->full=false;
+        memoryQueue->front->next=NULL;
+        memoryQueue->front->prev=NULL;
+        memoryQueue->rear=memoryQueue->front;
+    }
+
+    
     printMemQueue(memoryQueue);
 }
