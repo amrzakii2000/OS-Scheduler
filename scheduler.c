@@ -1,4 +1,5 @@
 #include "headers.h"
+#include <string.h>
 
 #define PRIORITY_LEVELS 10
 #define SHORTEST_JOB_FIRST 1
@@ -64,6 +65,7 @@ int main(int argc, char *argv[])
     initClk();
 
     // read command line arguments
+    //read command line arguments 
     AlgoType = atoi(argv[1]);
     quantum = atoi(argv[2]);
     processesCount = atoi(argv[3]);
@@ -83,10 +85,9 @@ int main(int argc, char *argv[])
         RR(quantum);
         break;
     case 4:
-        MLFQ();
+        MLFQ(quantum);
         break;
     default:
-        printf("Invalid Algorithm Type\n");
         break;
     }
 
@@ -100,9 +101,9 @@ int main(int argc, char *argv[])
     fprintf(schedulerPerf, "Average WTA: %.2f\n", totalWeightedTurnAroundTime / processesCount);
     fclose(schedulerPerf);
 
-    // Raise interrupt signal to clear all resources
+    //Raise interrupt signal to clear all resources
     raise(SIGINT);
-
+    
     return 0;
 }
 
@@ -121,9 +122,7 @@ void SJF()
     if (pGeneratorToSchedulerQueue == -1)
     {
         perror("Error in create");
-        exit(-1);
     }
-    struct processMsgBuff message;
     while (1)
     {
         // Recieve processes sent by process generator
@@ -152,12 +151,14 @@ void SJF()
             }
         }
         // Break from the schduler when all processes are finished
+        //Break from the schduler when all processes are finished 
         if (recivedAllProcesses && isEmpty(processesQueue) && !currentRunning)
         {
             break;
         }
 
         // Count total cycles and idle clock cycles
+        //Count total cycles and idle clock cycles
         countClockCycles();
     }
 }
@@ -214,26 +215,32 @@ void HPF()
                 runningProcessPid = processSend->pid;
             }
         }
+        if (recivedAllProcesses && isEmpty(processesQueue) && !currentRunning)
+        {
+            break;
+        }
+        countClockCycles();
     }
 }
 
-// Round Robin algorithm
 void RR(int quantum)
 {
-    struct process temp;
-    int c = 0;
-    int pGeneratorToSchedulerQueue = msgget(1234, 0666 | IPC_CREAT);
+    fprintf(schedulerLog, "----------          RR algorithm started          ---------\n");
+    fprintf(schedulerLog, "At time x process y state arr w total z remain y wait k\n\n");
+    processesQueue = createQueue();
+    pGeneratorToSchedulerQueue = msgget(1234, 0666 | IPC_CREAT);
+    // signal(SIGCHLD, childHandler);
+
     if (pGeneratorToSchedulerQueue == -1)
     {
         perror("Error in create");
-        exit(-1);
     }
     while (1)
     {
-        // recieve processes sent
+        //recieve processes sent
         recieveProcess();
 
-        // Handle the stopping of the running process if it finished its quantum
+        //Handle the stopping of the running process if it finished its quantum
         stoppingHandler();
         if (!currentRunning && !isEmpty(processesQueue))
         {
@@ -293,52 +300,57 @@ void MLFQ(int quantum)
 
     if (pGeneratorToSchedulerQueue == -1)
     {
-        rec_process = msgrcv(pGeneratorToSchedulerQueue, &message, sizeof(message.process), 1, !IPC_NOWAIT);
-        printf("\nMessage received: %s\n", message.mtext);
-        enqueue(q, message.process);
+        perror("Error in create");
     }
 
-    // Memory allocation for multilievel feedback queue
+    //Memory allocation for multilievel feedback queue
     InitializeMultiLevelQueue();
     while (1)
     {
-        // Recive arriving process in its corressponding level
+        //Recive arriving process in its corressponding level
         recieveMultiLevelProcesses();
-        // Handle process stopping
+        //Handle process stopping
         stoppingHandler();
         processesQueue = getPriorityQueue(multiLevelQueue, PRIORITY_LEVELS);
 
         if (processesQueue != NULL && !currentRunning && !isEmpty(processesQueue))
         {
-            q.front.remaining_time -= 1;
-            sleep(1);
-            c++;
-            if (c == quantum)
+            currentRunning = true;
+            processSend = dequeue(processesQueue);
+            processSend->state = STARTED;
+            processSend->startTime = getClk();
+            processSend->waitTime += getClk() - processSend->stoppingTime;
+
+            runningProcessRemainingTime = processSend->remainingTime;
+            if (processSend->remainingTime >= quantum)
+                processSend->remainingTime -= quantum;
+            else
+                processSend->remainingTime = 0;
+
+            if (processSend->pid == -1)
             {
-                if (q.front.remaining_time != 0)
+                runningProcessPid = fork();
+                if (runningProcessPid == 0)
                 {
-                    temp = dequeue(q);
-                    while (!rec_process)
-                    {
-                        rec_process = msgrcv(pGeneratorToSchedulerQueue, &message, sizeof(message.process), 1, IPC_NOWAIT);
-                        printf("\nMessage received: %s\n", message.mtext);
-                        enqueue(q, message.process);
-                    }
-                    enqueue(q, temp);
+                    char remainingTimeValue[5];
+                    char quantumTimeValue[5];
+
+                    sprintf(remainingTimeValue, "%d", processSend->runTime);
+                    sprintf(quantumTimeValue, "%d", quantum);
+                    execl("./process.out", "./process.out", remainingTimeValue, quantumTimeValue, NULL);
                 }
-                else
+                else if (runningProcessPid != -1)
                 {
-                    temp = dequeue(q);
-                    printf("\nProcess %d finished\n", temp.pid);
+                    processSend->pid = runningProcessPid;
                 }
-                c = 0;
             }
-            while (!rec_process)
+            else
             {
-                rec_process = msgrcv(pGeneratorToSchedulerQueue, &message, sizeof(message.process), 1, IPC_NOWAIT);
-                printf("\nMessage received: %s\n", message.mtext);
-                enqueue(q, message.process);
+                processSend->state = RESUMED;
+                kill(processSend->pid, SIGCONT);
+                runningProcessPid = processSend->pid;
             }
+            fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d\n", getClk(), processSend->id, getProcessStateText(processSend->state), processSend->arrivalTime, processSend->runTime, runningProcessRemainingTime, processSend->waitTime);
         }
         if (recivedAllProcesses && (processesQueue == NULL || isEmpty(processesQueue)) && !currentRunning)
         {
@@ -683,9 +695,11 @@ void countClockCycles()
 
         if (!currentRunning && !recivedAllProcesses)
         {
-            rec_process = msgrcv(pGeneratorToSchedulerQueue, &message, sizeof(message.process), 1, IPC_NOWAIT);
-            printf("\nMessage received: %s\n", message.mtext);
-            enqueue(q, message.process);
+                 idleClockCycles++;
+        }
+        totalClockCycles++;
+        printf("Total Cycles: %d\n", totalClockCycles);
+        printf("Idle Cycles: %d\n", idleClockCycles);
         }
     }
 }

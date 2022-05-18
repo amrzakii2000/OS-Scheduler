@@ -3,7 +3,12 @@
 
 void clearResources(int);
 void readOptions(int *, int *, int, char **);
+struct Queue *readFromFile(char *);
 struct Process *readProcess(char *);
+void alarmHandler(int);
+
+int startTime = 0;
+struct Queue *processesQueue;
 
 int main(int argc, char *argv[])
 {
@@ -33,10 +38,15 @@ int main(int argc, char *argv[])
         struct Process *process = readProcess(line);
         enqueue(processesQueue, process);
     }
+    signal(SIGALRM, alarmHandler);
+    // Read processes in a queue
+    processesQueue = readFromFile(argv[1]);
 
     // 2. Read the chosen scheduling algorithm and its parameters, if there are any from the argument list.
     int algorithm = -1;
     int quantum = 2;
+
+    // Used to read options from the command line
     readOptions(&algorithm, &quantum, argc, argv);
 
     // 3. Initiate and create the scheduler and clock processes.
@@ -48,7 +58,6 @@ int main(int argc, char *argv[])
     }
     else if (clockPid == 0)
     {
-        printf("Creating clock process\n");
         execl("./clk.out", "./clk.out", NULL);
     }
     int schedulerPid = fork();
@@ -68,22 +77,55 @@ int main(int argc, char *argv[])
     sendInt(algorithm);
 
     printf("Current Time is %d\n", x);
+        char algorithmName[5];
+        char quantumName[5];
+        char processCountName[5];
+        int size = getQueueSize(processesQueue);
 
-    // TODO Generation Main Loop
-    // 5. Create a data structure for processes and provide it with its parameters.
-    // 6. Send the information to the scheduler at the appropriate time.
+        sprintf(algorithmName, "%d", algorithm);
+        sprintf(quantumName, "%d", quantum);
+        sprintf(processCountName, "%d", size);
+
+        execl("./scheduler.out", "./scheduler.out", algorithmName, quantumName, processCountName, NULL);
+    }
+
+    // Initiate clock communication
+    initClk();
+    startTime = getClk();
+
+    if (processesQueue->front->arrivalTime - startTime > 0)
+    {
+        // Sleep till the time of the next process
+        alarm(processesQueue->front->arrivalTime - startTime);
+        pause();
+    }
+
+    // Send the processes
     while (!isEmpty(processesQueue))
     {
         int currentTime = getClk();
-        while (currentTime - x == processesQueue->front->arrivalTime)
+        while (processesQueue->front != NULL && currentTime - startTime >= processesQueue->front->arrivalTime)
         {
             struct Process *process = dequeue(processesQueue);
             sendProcess(process);
         }
+
+        if (isEmpty(processesQueue))
+            break;
+
+        // Sleep till next process arrival
+        int waitingTime = processesQueue->front->arrivalTime - getClk();
+        if (waitingTime > 0)
+        {
+            alarm(waitingTime);
+            pause();
+        }
     }
 
-    // 7. Clear clock resources
-    destroyClk(true);
+    // Send a signal to scheduler confirming that all processes are sent
+    kill(schedulerPid, SIGUSR1);
+    destroyClk(false);
+    pause();
 }
 
 void readOptions(int *algorithm, int *quantum, int argc, char **argv)
@@ -111,6 +153,37 @@ void readOptions(int *algorithm, int *quantum, int argc, char **argv)
         }
     }
 }
+
+struct Queue *readFromFile(char *fileName)
+{
+    // 1. Read the input files.
+    FILE *input = fopen(fileName, "r");
+    if (input == NULL)
+    {
+        printf("Input File not found\n");
+        exit(1);
+    }
+
+    struct Queue *processesQueue = createQueue();
+    // read lines of input file
+    char *line = NULL;
+    size_t len = 0;
+    int lineCount = 0;
+
+    while (getline(&line, &len, input) != -1)
+    {
+        lineCount++;
+        if (lineCount == 1)
+            continue;
+
+        // read process
+        struct Process *process = readProcess(line);
+        enqueue(processesQueue, process);
+    }
+    fclose(input);
+    return processesQueue;
+}
+
 struct Process *readProcess(char *line)
 {
     char *token = strtok(line, "\t");
@@ -133,7 +206,11 @@ struct Process *readProcess(char *line)
     return process;
 }
 
+void alarmHandler(int signum) {}
+
 void clearResources(int signum)
 {
-    // TODO Clears all resources in case of interruption
+    free(processesQueue);
+    destroyClk(true);
+    exit(0);
 }

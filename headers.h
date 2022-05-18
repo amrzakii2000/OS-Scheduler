@@ -75,10 +75,13 @@ enum ProccessState
 struct Process
 {
     int id;
+    int pid;
     int priority;
     int runTime;
     int arrivalTime;
     int waitTime;
+    int stoppingTime;
+    int startTime;
     int finishTime;
     int remainingTime;
     int memSize;
@@ -95,7 +98,7 @@ struct Process *createProcess(int id, int priority, int runTime, int arrivalTime
     p->id = id;
     p->priority = priority;
     p->runTime = p->remainingTime = runTime;
-    p->arrivalTime = arrivalTime;
+    p->arrivalTime = p->stoppingTime = arrivalTime;
     p->waitTime = 0;
     p->finishTime = 0;
     p->state = ARRIVED;
@@ -150,36 +153,6 @@ void sendProcess(struct Process *p)
         perror("Errror in send");
 };
 
-void sendInt(int toSend)
-{
-    int pGeneratorToSchedulerQueue = msgget(1234, 0666 | IPC_CREAT);
-    if (pGeneratorToSchedulerQueue == -1)
-    {
-        perror("Error in create");
-        exit(-1);
-    }
-    struct msgBuff message;
-    message.mtype = 2;
-    message.intMsg=toSend;
-    int send_val = msgsnd(pGeneratorToSchedulerQueue, &message, sizeof(message.intMsg), !IPC_NOWAIT);
-    if (send_val == -1)
-        perror("Errror in send");
-};
-
-void receiveInt(int *toReceive)
-{
-    int pGeneratorToSchedulerQueue = msgget(1234, 0666 | IPC_CREAT);
-    if (pGeneratorToSchedulerQueue == -1)
-    {
-        perror("Error in create");
-        exit(-1);
-    }
-    struct msgBuff message;
-    int receive_val = msgrcv(pGeneratorToSchedulerQueue, &message, sizeof(message.intMsg), 2, !IPC_NOWAIT);
-    if (receive_val == -1)
-        perror("Errror in receive");
-    *toReceive = message.intMsg;
-};
 struct Queue
 {
     struct Process *front;
@@ -220,7 +193,14 @@ struct Process *dequeue(struct Queue *q)
     else
     {
         struct Process *p = q->front;
-        q->front = q->front->next;
+        if (q->front == q->rear)
+        {
+            q->front = q->rear = NULL;
+        }
+        else
+        {
+            q->front = q->front->next;
+        }
         return p;
     }
 }
@@ -243,6 +223,36 @@ void insertByPriority(struct Queue *q, struct Process *p)
         else
         {
             while (temp->next != NULL && temp->next->priority < p->priority)
+            {
+                temp = temp->next;
+            }
+            p->next = temp->next;
+            temp->next = p;
+            if (temp == q->rear)
+            {
+                q->rear = p;
+            }
+        }
+    }
+}
+void insertByShortestRunTime(struct Queue *q, struct Process *p)
+{
+    if (q->front == NULL)
+    {
+        p->next = NULL;
+        q->front = q->rear = p;
+    }
+    else
+    {
+        struct Process *temp = q->front;
+        if (temp->runTime > p->runTime)
+        {
+            p->next = temp;
+            q->front = p;
+        }
+        else
+        {
+            while (temp->next != NULL && temp->next->runTime < p->runTime)
             {
                 temp = temp->next;
             }
@@ -287,19 +297,62 @@ void insertByRuntime(struct Queue *q, struct Process *p)
     }
 }
 
-struct Process *peek(struct Queue *q)
-{
-    if (q->front == NULL)
-    {
-        return NULL;
-    }
-    else
-    {
-        return q->front;
-    }
-}
-
 bool isEmpty(struct Queue *q)
 {
     return q->front == NULL;
+}
+
+char *getProcessStateText(enum ProccessState state)
+{
+    switch (state)
+    {
+    case ARRIVED:
+        return "ARRIVED";
+    case STARTED:
+        return "STARTED";
+    case RESUMED:
+        return "RESUMED";
+    case STOPPED:
+        return "STOPPED";
+    case FINISHED:
+        return "FINISHED";
+    default:
+        return "UNKNOWN";
+    }
+}
+
+// Print Queue
+void printQueue(struct Queue *q)
+{
+    struct Process *p = q->front;
+    while (p != NULL)
+    {
+        printf("%d ", p->id);
+        p = p->next;
+    }
+    printf("\n");
+}
+
+struct Queue *getPriorityQueue(struct Queue **q, int size)
+{
+    for (int i = 0; i <= size; i++)
+    {
+        if (!isEmpty(q[i]))
+        {
+            return q[i];
+        }
+    }
+    return NULL;
+}
+
+int getQueueSize(struct Queue *q)
+{
+    int size = 0;
+    struct Process *p = q->front;
+    while (p != NULL)
+    {
+        size++;
+        p = p->next;
+    }
+    return size;
 }
