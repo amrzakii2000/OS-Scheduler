@@ -84,6 +84,10 @@ struct Process
     int startTime;
     int finishTime;
     int remainingTime;
+    int memSize;
+    int actualMemSize;
+    int memStart;
+    int memEnd;
     enum ProccessState state;
     struct Process *next;
 };
