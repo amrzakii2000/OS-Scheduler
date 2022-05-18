@@ -111,7 +111,7 @@ struct memQueue *createMemQueue()
 
 void addPair(struct memQueue *q, struct Pair *exist, struct Pair *added)
 {
-    int temp = (exist->end - exist->start) / 2;
+    int temp = (exist->end - exist->start+1) / 2;
     exist->end = exist->start + temp;
     added->start = exist->end;
     added->end = added->start + temp;
@@ -120,7 +120,16 @@ void addPair(struct memQueue *q, struct Pair *exist, struct Pair *added)
     exist->next = added;
 };
 
-
+void printMemQueue(struct memQueue *q)
+{
+    struct Pair *p = q->front;
+    while (p != NULL)
+    {
+        printf("start: %d, end: %d\n", p->start, p->end);
+        printf("full: %d\n", p->full);
+        p = p->next;
+    }
+};
 
 struct Process
 {
