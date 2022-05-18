@@ -572,20 +572,71 @@ void recieveMultiLevelProcesses()
         {
 
             p = createProcess(message.process.id, message.process.priority, message.process.runTime, message.process.arrivalTime, message.process.memSize);
-            enqueue(multiLevelQueue[p->priority], p);
-            fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d\n", getClk(), p->id, getProcessStateText(p->state), p->arrivalTime, p->runTime, p->remainingTime, p->waitTime);
-
-            // Check if a process of higher priority arrived
-            if (currentRunning && processSend && p->priority < processSend->priority)
+            bool freeSpace = false;
+            if (!isEmpty(diskQueue))
             {
-                processSend->remainingTime = runningProcessRemainingTime - getClk() + processSend->startTime;
-                kill(runningProcessPid, SIGSTOP);
-                processSend->state = STOPPED;
-                processSend->stoppingTime = getClk();
-                fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d\n", getClk(), processSend->id, getProcessStateText(processSend->state), processSend->arrivalTime, processSend->runTime, processSend->remainingTime, processSend->waitTime);
-                currentRunning = false;
-                enqueue(multiLevelQueue[processSend->priority], processSend);
+                for (int i = 0; i < getQueueSize(diskQueue); i++)
+                {
+                    struct Process *temp = dequeue(diskQueue);
+                    freeSpace = checkMemory(temp);
+                    if (freeSpace)
+                    {
+                        enqueue(multiLevelQueue[temp->priority], p);
+                        fprintf(memoryLog, "#At time %d allocated %d bytes for process %d from %d to %d\n", getClk(), temp->memSize, temp->id, temp->memStart, temp->memEnd);
+                        fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d\n", getClk(), p->id, getProcessStateText(p->state), p->arrivalTime, p->runTime, p->remainingTime, p->waitTime);
+
+                        // Check if a process of higher priority arrived
+                        if (currentRunning && processSend && p->priority < processSend->priority)
+                        {
+                            processSend->remainingTime = runningProcessRemainingTime - getClk() + processSend->startTime;
+                            kill(runningProcessPid, SIGSTOP);
+                            processSend->state = STOPPED;
+                            processSend->stoppingTime = getClk();
+                            fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d\n", getClk(), processSend->id, getProcessStateText(processSend->state), processSend->arrivalTime, processSend->runTime, processSend->remainingTime, processSend->waitTime);
+                            currentRunning = false;
+                            enqueue(multiLevelQueue[processSend->priority], processSend);
+                        }
+                    }
+                    else
+                    {
+                        enqueue(diskQueue, temp);
+                    }
+                }
             }
+
+            freeSpace = checkMemory(p);
+            if (freeSpace)
+            {
+                enqueue(multiLevelQueue[p->priority], p);
+                fprintf(memoryLog, "#At time %d allocated %d bytes for process %d from %d to %d\n", getClk(), p->memSize, p->id, p->memStart, p->memEnd);
+                fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d\n", getClk(), p->id, getProcessStateText(p->state), p->arrivalTime, p->runTime, p->remainingTime, p->waitTime);
+
+                // Check if a process of higher priority arrived
+                if (currentRunning && processSend && p->priority < processSend->priority)
+                {
+                    processSend->remainingTime = runningProcessRemainingTime - getClk() + processSend->startTime;
+                    kill(runningProcessPid, SIGSTOP);
+                    processSend->state = STOPPED;
+                    processSend->stoppingTime = getClk();
+                    fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d\n", getClk(), processSend->id, getProcessStateText(processSend->state), processSend->arrivalTime, processSend->runTime, processSend->remainingTime, processSend->waitTime);
+                    currentRunning = false;
+                    enqueue(multiLevelQueue[processSend->priority], processSend);
+                }
+            }
+            else
+                enqueue(diskQueue, p);
+
+            // // Check if a process of higher priority arrived
+            // if (currentRunning && processSend && p->priority < processSend->priority)
+            // {
+            //     processSend->remainingTime = runningProcessRemainingTime - getClk() + processSend->startTime;
+            //     kill(runningProcessPid, SIGSTOP);
+            //     processSend->state = STOPPED;
+            //     processSend->stoppingTime = getClk();
+            //     fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d\n", getClk(), processSend->id, getProcessStateText(processSend->state), processSend->arrivalTime, processSend->runTime, processSend->remainingTime, processSend->waitTime);
+            //     currentRunning = false;
+            //     enqueue(multiLevelQueue[processSend->priority], processSend);
+            // }
             break;
         }
     }
