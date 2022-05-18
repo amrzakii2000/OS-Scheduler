@@ -25,6 +25,8 @@ void InitializeMultiLevelQueue();
 void recieveMultiLevelProcesses();
 void countIdleClockCycles();
 void countClockCycles();
+bool checkMemory(struct Process *p);
+
 
 int AlgoType;
 int quantum;
