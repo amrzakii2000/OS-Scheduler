@@ -104,7 +104,24 @@ struct Process *createProcess(int id, int priority, int runTime, int arrivalTime
     p->state = ARRIVED;
     p->next = NULL;
     p->pid = -1;
+    p->memSize = memSize;
+    for (int i = 0; i < 10; i++)
+    {
+        int temp = 0;
+        for (int j = 0; j < i; j++)
+        {
+            temp = temp * 2;
+        }
 
+        if (temp >= memSize)
+        {
+            p->actualMemSize = temp;
+            break;
+        }
+    }
+    // p->actualMemSize = pow(2, ceil(log(memSize)/log(2)));
+    p->memStart = -1;
+    p->memEnd = -1;
     return p;
 };
 
