@@ -92,7 +92,7 @@ struct Process
     struct Process *next;
 };
 
-struct Process *createProcess(int id, int priority, int runTime, int arrivalTime)
+struct Process *createProcess(int id, int priority, int runTime, int arrivalTime, int memSize)
 {
     struct Process *p = (struct Process *)malloc(sizeof(struct Process));
     p->id = id;
