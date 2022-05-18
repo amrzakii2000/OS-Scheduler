@@ -491,18 +491,48 @@ void recieveProcessHPF()
             p = createProcess(message.process.id, message.process.priority, message.process.runTime, message.process.arrivalTime, message.process.memSize);
 
             // If a process with higher priority arrives, interrupt the current running process
-            if (processSend && p->priority < processSend->priority)
+            // if (processSend && p->priority < processSend->priority)
+            // {
+            //     processSend->remainingTime = runningProcessRemainingTime - getClk() + processSend->startTime;
+            //     kill(runningProcessPid, SIGSTOP);
+            //     processSend->state = STOPPED;
+            //     processSend->stoppingTime = getClk();
+            //     fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d\n", getClk(), processSend->id, getProcessStateText(processSend->state), processSend->arrivalTime, processSend->runTime, processSend->remainingTime, processSend->waitTime);
+            //     currentRunning = false;
+            //     insertByPriority(processesQueue, processSend);
+            // }
+
+            bool freeSpace = false;
+            if (!isEmpty(diskQueue))
             {
-                processSend->remainingTime = runningProcessRemainingTime - getClk() + processSend->startTime;
-                kill(runningProcessPid, SIGSTOP);
-                processSend->state = STOPPED;
-                processSend->stoppingTime = getClk();
-                fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d\n", getClk(), processSend->id, getProcessStateText(processSend->state), processSend->arrivalTime, processSend->runTime, processSend->remainingTime, processSend->waitTime);
-                currentRunning = false;
-                insertByPriority(processesQueue, processSend);
+                for (int i = 0; i < getQueueSize(diskQueue); i++)
+                {
+                    struct Process *temp = dequeue(diskQueue);
+                    freeSpace = checkMemory(temp);
+                    if (freeSpace)
+                    {
+                        // If a process with higher priority arrives, interrupt the current running process
+
+                        if (processSend && temp->priority < processSend->priority)
+                        {
+                            processSend->remainingTime = runningProcessRemainingTime - getClk() + processSend->startTime;
+                            kill(runningProcessPid, SIGSTOP);
+                            processSend->state = STOPPED;
+                            processSend->stoppingTime = getClk();
+                            fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d\n", getClk(), processSend->id, getProcessStateText(processSend->state), processSend->arrivalTime, processSend->runTime, processSend->remainingTime, processSend->waitTime);
+                            currentRunning = false;
+                            insertByPriority(processesQueue, processSend);
+                        }
+                        insertByPriority(processesQueue, temp);
+                        fprintf(memoryLog, "#At time %d allocated %d bytes for process %d from %d to %d\n", getClk(), temp->memSize, temp->id, temp->memStart, temp->memEnd);
+                        fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d\n", getClk(), p->id, getProcessStateText(p->state), p->arrivalTime, p->runTime, p->remainingTime, p->waitTime);
+                    }
+                    else
+                    {
+                        enqueue(diskQueue, temp);
+                    }
+                }
             }
-            insertByPriority(processesQueue, p);
-            fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d\n", getClk(), p->id, getProcessStateText(p->state), p->arrivalTime, p->runTime, p->remainingTime, p->waitTime);
             break;
         }
     }
