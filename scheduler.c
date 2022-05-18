@@ -164,6 +164,8 @@ void HPF()
 {
     fprintf(schedulerLog, "----------          HPF algorithm started          ---------\n");
     fprintf(schedulerLog, "At time x process y state arr w total z remain y wait k\n\n");
+    fprintf(memoryLog, "#At time x allocated y bytes for process z from i to j\n\n");
+
     processesQueue = createQueue();
     pGeneratorToSchedulerQueue = msgget(1234, 0666 | IPC_CREAT);
 
@@ -224,6 +226,7 @@ void RR(int quantum)
 {
     fprintf(schedulerLog, "----------          RR algorithm started          ---------\n");
     fprintf(schedulerLog, "At time x process y state arr w total z remain y wait k\n\n");
+    fprintf(memoryLog, "#At time x allocated y bytes for process z from i to j\n\n");
     processesQueue = createQueue();
     pGeneratorToSchedulerQueue = msgget(1234, 0666 | IPC_CREAT);
     // signal(SIGCHLD, childHandler);
@@ -293,6 +296,7 @@ void MLFQ(int quantum)
 {
     fprintf(schedulerLog, "----------          MLFQ algorithm started          ---------\n");
     fprintf(schedulerLog, "At time x process y state arr w total z remain y wait k\n\n");
+    fprintf(memoryLog, "#At time x allocated y bytes for process z from i to j\n\n");
     pGeneratorToSchedulerQueue = msgget(1234, 0666 | IPC_CREAT);
 
     if (pGeneratorToSchedulerQueue == -1)
