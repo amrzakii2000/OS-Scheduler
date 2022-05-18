@@ -382,6 +382,11 @@ void childHandler(int signum)
         totalWaitingTime += processSend->waitTime;
         totalWeightedTurnAroundTime += weightedTurnAround;
         fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d TA %.2f WTA %.2f\n", getClk(), processSend->id, getProcessStateText(processSend->state), processSend->arrivalTime, processSend->runTime, processSend->remainingTime, processSend->waitTime, turnAround, weightedTurnAround);
+        fprintf(memoryLog, "#At time %d freed %d bytes from process %d from %d to %d\n", getClk(), processSend->memSize, processSend->id, processSend->memStart, processSend->memEnd);
+        for (int i = processSend->memStart; i < processSend->memEnd; i++)
+        {
+            memory[i] = false;
+        }
         free(processSend);
     }
 }
