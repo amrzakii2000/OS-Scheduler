@@ -693,3 +693,46 @@ void countClockCycles()
         printf("Idle Cycles: %d\n", idleClockCycles);
     }
 }
+
+bool checkMemory(struct Process *p)
+{
+    int min = INT_MAX;
+    int c = 0;
+    int start = 0;
+    int end = 0;
+    for (int i = 0; i < MAXMEMSIZE; i++)
+    {
+        if (memory[i] == false)
+        {
+            c++;
+        }
+        else
+        {
+
+            if (c >= p->memSize)
+            {
+                if (c < min)
+                {
+                    start = i - c;
+                    end = start + p->actualMemSize;
+                    min = c;
+                }
+            }
+            c = 0;
+        }
+    }
+    if (min == INT_MAX)
+    {
+        return false;
+    }
+    else
+    {
+        for (int i = start; i < end; i++)
+        {
+            memory[i] = true;
+        }
+        p->memStart = start;
+        p->memEnd = end;
+        return true;
+    }
+}
