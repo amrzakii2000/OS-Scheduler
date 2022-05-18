@@ -421,132 +421,156 @@ void recieveProcess()
             p = createProcess(message.process.id, message.process.priority, message.process.runTime, message.process.arrivalTime);
             if (AlgoType == SHORTEST_JOB_FIRST)
             {
-                insertByRuntime(processesQueue, p);
+                bool freeSpace = false;
+                if (!isEmpty(diskQueue))
+                {
+                    for (int i = 0; i < getQueueSize(diskQueue); i++)
+                    {
+                        struct Process *temp = dequeue(diskQueue);
+                        freeSpace = checkMemory(temp);
+                        if (freeSpace)
+                        {
+                            insertByRuntime(processesQueue, temp);
+                            fprintf(memoryLog, "#At time %d allocated %d bytes for process %d from %d to %d\n", getClk(), temp->memSize, temp->id, temp->memStart, temp->memEnd);
+                            fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d\n", getClk(), p->id, getProcessStateText(p->state), p->arrivalTime, p->runTime, p->remainingTime, p->waitTime);
+                        }
+                        else
+                        {
+                            enqueue(diskQueue, temp);
+                        }
+                    }
+                }
+
+                freeSpace = checkMemory(p);
+                if (freeSpace)
+                {
+                    insertByRuntime(processesQueue, p);
+                    fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d\n", getClk(), p->id, getProcessStateText(p->state), p->arrivalTime, p->runTime, p->remainingTime, p->waitTime);
+                    fprintf(memoryLog, "#At time %d allocated %d bytes for process %d from %d to %d\n", getClk(), p->memSize, p->id, p->memStart, p->memEnd);
+                }
+                else if (AlgoType == ROUND_ROBIN)
+                {
+                    enqueue(processesQueue, p);
+                }
+                break;
             }
-            else if (AlgoType == ROUND_ROBIN)
+        }
+    }
+
+    void recieveProcessHPF()
+    {
+        while (rec_process != -1)
+        {
+            rec_process = msgrcv(pGeneratorToSchedulerQueue, &message, sizeof(message.process), 0, IPC_NOWAIT);
+            if (rec_process == -1)
             {
-                enqueue(processesQueue, p);
+                rec_process = 1;
+                break;
             }
-            fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d\n", getClk(), p->id, getProcessStateText(p->state), p->arrivalTime, p->runTime, p->remainingTime, p->waitTime);
-            break;
-        }
-    }
-}
-
-void recieveProcessHPF()
-{
-    while (rec_process != -1)
-    {
-        rec_process = msgrcv(pGeneratorToSchedulerQueue, &message, sizeof(message.process), 0, IPC_NOWAIT);
-        if (rec_process == -1)
-        {
-            rec_process = 1;
-            break;
-        }
-        else
-        {
-
-            p = createProcess(message.process.id, message.process.priority, message.process.runTime, message.process.arrivalTime);
-
-            // If a process with higher priority arrives, interrupt the current running process
-            if (processSend && p->priority < processSend->priority)
+            else
             {
-                processSend->remainingTime = runningProcessRemainingTime - getClk() + processSend->startTime;
-                kill(runningProcessPid, SIGSTOP);
-                processSend->state = STOPPED;
-                processSend->stoppingTime = getClk();
-                fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d\n", getClk(), processSend->id, getProcessStateText(processSend->state), processSend->arrivalTime, processSend->runTime, processSend->remainingTime, processSend->waitTime);
-                currentRunning = false;
-                insertByPriority(processesQueue, processSend);
+
+                p = createProcess(message.process.id, message.process.priority, message.process.runTime, message.process.arrivalTime);
+
+                // If a process with higher priority arrives, interrupt the current running process
+                if (processSend && p->priority < processSend->priority)
+                {
+                    processSend->remainingTime = runningProcessRemainingTime - getClk() + processSend->startTime;
+                    kill(runningProcessPid, SIGSTOP);
+                    processSend->state = STOPPED;
+                    processSend->stoppingTime = getClk();
+                    fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d\n", getClk(), processSend->id, getProcessStateText(processSend->state), processSend->arrivalTime, processSend->runTime, processSend->remainingTime, processSend->waitTime);
+                    currentRunning = false;
+                    insertByPriority(processesQueue, processSend);
+                }
+                insertByPriority(processesQueue, p);
+                fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d\n", getClk(), p->id, getProcessStateText(p->state), p->arrivalTime, p->runTime, p->remainingTime, p->waitTime);
+                break;
             }
-            insertByPriority(processesQueue, p);
-            fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d\n", getClk(), p->id, getProcessStateText(p->state), p->arrivalTime, p->runTime, p->remainingTime, p->waitTime);
-            break;
         }
     }
-}
 
-void recieveMultiLevelProcesses()
-{
-    while (rec_process != -1)
+    void recieveMultiLevelProcesses()
     {
-        rec_process = msgrcv(pGeneratorToSchedulerQueue, &message, sizeof(message.process), 0, IPC_NOWAIT);
-        if (rec_process == -1)
+        while (rec_process != -1)
         {
-            rec_process = 1;
-            break;
-        }
-        else
-        {
-
-            p = createProcess(message.process.id, message.process.priority, message.process.runTime, message.process.arrivalTime);
-            enqueue(multiLevelQueue[p->priority], p);
-            fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d\n", getClk(), p->id, getProcessStateText(p->state), p->arrivalTime, p->runTime, p->remainingTime, p->waitTime);
-
-            // Check if a process of higher priority arrived
-            if (currentRunning && processSend && p->priority < processSend->priority)
+            rec_process = msgrcv(pGeneratorToSchedulerQueue, &message, sizeof(message.process), 0, IPC_NOWAIT);
+            if (rec_process == -1)
             {
-                processSend->remainingTime = runningProcessRemainingTime - getClk() + processSend->startTime;
-                kill(runningProcessPid, SIGSTOP);
-                processSend->state = STOPPED;
-                processSend->stoppingTime = getClk();
-                fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d\n", getClk(), processSend->id, getProcessStateText(processSend->state), processSend->arrivalTime, processSend->runTime, processSend->remainingTime, processSend->waitTime);
-                currentRunning = false;
-                enqueue(multiLevelQueue[processSend->priority], processSend);
+                rec_process = 1;
+                break;
             }
-            break;
+            else
+            {
+
+                p = createProcess(message.process.id, message.process.priority, message.process.runTime, message.process.arrivalTime);
+                enqueue(multiLevelQueue[p->priority], p);
+                fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d\n", getClk(), p->id, getProcessStateText(p->state), p->arrivalTime, p->runTime, p->remainingTime, p->waitTime);
+
+                // Check if a process of higher priority arrived
+                if (currentRunning && processSend && p->priority < processSend->priority)
+                {
+                    processSend->remainingTime = runningProcessRemainingTime - getClk() + processSend->startTime;
+                    kill(runningProcessPid, SIGSTOP);
+                    processSend->state = STOPPED;
+                    processSend->stoppingTime = getClk();
+                    fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d\n", getClk(), processSend->id, getProcessStateText(processSend->state), processSend->arrivalTime, processSend->runTime, processSend->remainingTime, processSend->waitTime);
+                    currentRunning = false;
+                    enqueue(multiLevelQueue[processSend->priority], processSend);
+                }
+                break;
+            }
         }
     }
-}
 
-void InitializeMultiLevelQueue()
-{
-    multiLevelQueue = (struct Queue **)malloc(sizeof(struct Queue *) * (PRIORITY_LEVELS + 1));
-    for (int i = 0; i <= PRIORITY_LEVELS; i++)
+    void InitializeMultiLevelQueue()
     {
-        multiLevelQueue[i] = createQueue();
+        multiLevelQueue = (struct Queue **)malloc(sizeof(struct Queue *) * (PRIORITY_LEVELS + 1));
+        for (int i = 0; i <= PRIORITY_LEVELS; i++)
+        {
+            multiLevelQueue[i] = createQueue();
+        }
     }
-}
 
-// Function used to check if current running process finished its quantum
-void stoppingHandler()
-{
-    if (currentRunning && processSend->remainingTime != 0 && getClk() - processSend->startTime == quantum)
+    // Function used to check if current running process finished its quantum
+    void stoppingHandler()
     {
-        kill(runningProcessPid, SIGSTOP);
-        currentRunning = false;
-        processSend->state = STOPPED;
-        processSend->stoppingTime = getClk();
-        fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d\n", getClk(), processSend->id, getProcessStateText(processSend->state), processSend->arrivalTime, processSend->runTime, processSend->remainingTime, processSend->waitTime);
+        if (currentRunning && processSend->remainingTime != 0 && getClk() - processSend->startTime == quantum)
+        {
+            kill(runningProcessPid, SIGSTOP);
+            currentRunning = false;
+            processSend->state = STOPPED;
+            processSend->stoppingTime = getClk();
+            fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d\n", getClk(), processSend->id, getProcessStateText(processSend->state), processSend->arrivalTime, processSend->runTime, processSend->remainingTime, processSend->waitTime);
 
-        // In case of multi level feedback queue, we move the process to the next level
-        if (AlgoType == MULTILEVEL_FEEDBACK_QUEUE)
-        {
-            recieveMultiLevelProcesses();
-            int nextLevel = processSend->priority + 1 <= PRIORITY_LEVELS ? ++processSend->priority : PRIORITY_LEVELS;
-            enqueue(multiLevelQueue[nextLevel], processSend);
-        }
-        else
-        {
-            recieveProcess();
-            enqueue(processesQueue, processSend);
+            // In case of multi level feedback queue, we move the process to the next level
+            if (AlgoType == MULTILEVEL_FEEDBACK_QUEUE)
+            {
+                recieveMultiLevelProcesses();
+                int nextLevel = processSend->priority + 1 <= PRIORITY_LEVELS ? ++processSend->priority : PRIORITY_LEVELS;
+                enqueue(multiLevelQueue[nextLevel], processSend);
+            }
+            else
+            {
+                recieveProcess();
+                enqueue(processesQueue, processSend);
+            }
         }
     }
-}
 
-// Used to count clock cycles
-void countClockCycles()
-{
-    if (currentClock < getClk())
+    // Used to count clock cycles
+    void countClockCycles()
     {
-        currentClock = getClk();
-
-        if (!currentRunning && !recivedAllProcesses)
+        if (currentClock < getClk())
         {
-            idleClockCycles++;
+            currentClock = getClk();
+
+            if (!currentRunning && !recivedAllProcesses)
+            {
+                idleClockCycles++;
+            }
+            totalClockCycles++;
+            printf("Total Cycles: %d\n", totalClockCycles);
+            printf("Idle Cycles: %d\n", idleClockCycles);
         }
-        totalClockCycles++;
-        printf("Total Cycles: %d\n", totalClockCycles);
-        printf("Idle Cycles: %d\n", idleClockCycles);
     }
-}
