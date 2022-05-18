@@ -47,9 +47,9 @@ float totalWeightedTurnAroundTime = 0;
 int currentClock = 0;
 int totalClockCycles = 0;
 int idleClockCycles = 0;
-struct Queue *diskQueue;
+//struct Queue *diskQueue;
 FILE *memoryLog;
-bool memory[MAXMEMSIZE] = {false};
+//bool memory[MAXMEMSIZE] = {false};
 struct memQueue *memoryQueue;
 
 int main(int argc, char *argv[])
@@ -117,7 +117,7 @@ void SJF()
     processesQueue = createQueue();
     memoryQueue = createMemQueue();
 
-    diskQueue = createQueue();
+    //diskQueue = createQueue();
 
     // Intialize IPC
     pGeneratorToSchedulerQueue = msgget(1234, 0666 | IPC_CREAT);
@@ -173,7 +173,7 @@ void HPF()
     processesQueue = createQueue();
     memoryQueue = createMemQueue();
 
-    diskQueue = createQueue();
+    //diskQueue = createQueue();
 
     pGeneratorToSchedulerQueue = msgget(1234, 0666 | IPC_CREAT);
 
@@ -238,7 +238,7 @@ void RR(int quantum)
     processesQueue = createQueue();
     memoryQueue = createMemQueue();
 
-    diskQueue = createQueue();
+    //diskQueue = createQueue();
 
     pGeneratorToSchedulerQueue = msgget(1234, 0666 | IPC_CREAT);
     // signal(SIGCHLD, childHandler);
@@ -319,7 +319,7 @@ void MLFQ(int quantum)
     // Memory allocation for multilievel feedback queue
     InitializeMultiLevelQueue();
     memoryQueue = createMemQueue();
-    diskQueue = createQueue();
+   // diskQueue = createQueue();
 
     while (1)
     {
@@ -398,10 +398,10 @@ void childHandler(int signum)
         totalWeightedTurnAroundTime += weightedTurnAround;
         fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d TA %.2f WTA %.2f\n", getClk(), processSend->id, getProcessStateText(processSend->state), processSend->arrivalTime, processSend->runTime, processSend->remainingTime, processSend->waitTime, turnAround, weightedTurnAround);
         fprintf(memoryLog, "#At time %d freed %d bytes from process %d from %d to %d\n", getClk(), processSend->memSize, processSend->id, processSend->memStart, processSend->memEnd);
-        for (int i = processSend->memStart; i < processSend->memEnd + 1; i++)
-        {
-            memory[i] = false;
-        }
+        // for (int i = processSend->memStart; i < processSend->memEnd + 1; i++)
+        // {
+        //     memory[i] = false;
+        // }
         free(processSend);
     }
 }
@@ -416,7 +416,7 @@ void clearResources(int signum)
         free(multiLevelQueue);
     }
     free(processesQueue);
-    free(diskQueue);
+    //free(diskQueue);
     msgctl(pGeneratorToSchedulerQueue, IPC_RMID, (struct msqid_ds *)0);
     destroyClk(true);
     exit(0);
@@ -462,11 +462,11 @@ void recieveProcess()
                 fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d\n", getClk(), p->id, getProcessStateText(p->state), p->arrivalTime, p->runTime, p->remainingTime, p->waitTime);
                 fprintf(memoryLog, "#At time %d allocated %d bytes for process %d from %d to %d\n", getClk(), p->memSize, p->id, p->memStart, p->memEnd);
             }
-            else
-            {
-                printf("No free space\n");
-                enqueue(diskQueue, p);
-            }
+            // else
+            // {
+            //     printf("No free space\n");
+            //     enqueue(diskQueue, p);
+            // }
         }
 
         else if (AlgoType == ROUND_ROBIN)
@@ -497,10 +497,10 @@ void recieveProcess()
                 fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d\n", getClk(), p->id, getProcessStateText(p->state), p->arrivalTime, p->runTime, p->remainingTime, p->waitTime);
                 fprintf(memoryLog, "#At time %d allocated %d bytes for process %d from %d to %d\n", getClk(), p->memSize, p->id, p->memStart, p->memEnd);
             }
-            else
-            {
-                enqueue(diskQueue, p);
-            }
+            // else
+            // {
+            //     enqueue(diskQueue, p);
+            // }
         }
     }
 
@@ -626,8 +626,8 @@ void recieveProcessHPF()
             fprintf(memoryLog, "#At time %d allocated %d bytes for process %d from %d to %d\n", getClk(), p->memSize, p->id, p->memStart, p->memEnd);
             fprintf(schedulerLog, "At time %d process %d %s arr %d total %d remain %d wait %d\n", getClk(), p->id, getProcessStateText(p->state), p->arrivalTime, p->runTime, p->remainingTime, p->waitTime);
         }
-        else
-            enqueue(diskQueue, p);
+        // else
+        //     enqueue(diskQueue, p);
     }
 
     // bool freeSpace = false;
@@ -728,8 +728,8 @@ void recieveMultiLevelProcesses()
                     enqueue(multiLevelQueue[processSend->priority], processSend);
                 }
             }
-            else
-                enqueue(diskQueue, p);
+            // else
+            //     enqueue(diskQueue, p);
 
             // // Check if a process of higher priority arrived
             // if (currentRunning && processSend && p->priority < processSend->priority)
@@ -866,9 +866,11 @@ bool checkMemory(struct Process *p)
                 struct Pair *new = createPair();
                 addPair(memoryQueue, iterator, new);
             }
+
             iterator->full = true;
             p->memStart = start;
             p->memEnd = start + p->actualMemSize;
+            break;
         }
         iterator = iterator->next;
     }
