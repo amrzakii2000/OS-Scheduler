@@ -49,6 +49,10 @@ float totalWeightedTurnAroundTime = 0;
 int currentClock = 0;
 int totalClockCycles = 0;
 int idleClockCycles = 0;
+struct Queue *diskQueue;
+FILE *memoryLog;
+bool memory[MAXMEMSIZE] = {false};
+
 
 int main(int argc, char *argv[])
 {
