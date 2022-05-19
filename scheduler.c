@@ -974,13 +974,14 @@ void freeMemory(struct Process *p)
         iterator = iterator->next;
     }
     int c = 0;
-    int num=0;
+    int num = 0;
     iterator = memoryQueue->front;
     while (iterator->next != NULL)
     {
-
-        if (iterator->next != NULL && iterator->full == false && iterator->next->full == false && (iterator->next->end - iterator->next->start) == iterator->end - iterator->start)
+        fprintf(memoryLog, "###At time %d did NOT merge from %d to %d\n", getClk(), iterator->start, iterator->next->end);
+        if (iterator->next != NULL && iterator->full == false && iterator->next->full == false && (iterator->next->end - iterator->next->start) == iterator->end - iterator->start && (int)(iterator->next->end/((iterator->next->end - iterator->start)/2)) % 2 == 0)
         {
+            fprintf(memoryLog, "##At time %d merged from %d to %d\n", getClk(), iterator->start, iterator->next->end);
             printf("Merging with next\n");
             iterator->next->start = iterator->start;
             iterator->next->prev = iterator->prev;
@@ -1004,14 +1005,13 @@ void freeMemory(struct Process *p)
     }
     if (num == c)
     {
-        memoryQueue->front->start=0;
-        memoryQueue->front->end=MAXMEMSIZE;
-        memoryQueue->front->full=false;
-        memoryQueue->front->next=NULL;
-        memoryQueue->front->prev=NULL;
-        memoryQueue->rear=memoryQueue->front;
+        memoryQueue->front->start = 0;
+        memoryQueue->front->end = MAXMEMSIZE;
+        memoryQueue->front->full = false;
+        memoryQueue->front->next = NULL;
+        memoryQueue->front->prev = NULL;
+        memoryQueue->rear = memoryQueue->front;
     }
 
-    
     printMemQueue(memoryQueue);
 }
