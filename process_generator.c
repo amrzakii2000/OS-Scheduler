@@ -164,7 +164,11 @@ struct Process *readProcess(char *line)
     token = strtok(NULL, "\t");
     int priority = atoi(token);
 
-    struct Process *process = createProcess(pid, priority, burstTime, arrivalTime);
+    token = strtok(NULL, "\t");
+    int memSize = atoi(token);
+
+
+    struct Process *process = createProcess(pid, priority, burstTime, arrivalTime,memSize);
     return process;
 }
 

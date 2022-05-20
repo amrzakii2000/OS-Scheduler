@@ -1,3 +1,5 @@
+#include <math.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/types.h>
@@ -70,6 +72,65 @@ enum ProccessState
     FINISHED
 };
 
+struct Pair
+{
+    int start;
+    int end;
+    struct Pair *next;
+    struct Pair *prev;
+    bool full;
+};
+
+struct Pair *createPair()
+{
+    struct Pair *p = (struct Pair *)malloc(sizeof(struct Pair));
+    p->start = -1;
+    p->end = -1;
+    p->next = NULL;
+    p->prev = NULL;
+    p->full = false;
+    return p;
+};
+
+struct memQueue
+{
+    struct Pair *front;
+    struct Pair *rear;
+};
+
+struct memQueue *createMemQueue()
+{
+    struct Pair *p = createPair();
+    p->start = 0;
+    p->end = 1023;
+    struct memQueue *q = (struct memQueue *)malloc(sizeof(struct memQueue));
+    q->front = p;
+    q->rear = q->front;
+    return q;
+};
+
+void addPair(struct memQueue *q, struct Pair *exist, struct Pair *added)
+{
+    int temp = (exist->end - exist->start+1) / 2;
+    exist->end = exist->start + temp;
+    added->start = exist->end;
+    added->end = added->start + temp;
+    added->next = exist->next;
+    added->prev = exist;
+    exist->next = added;
+};
+
+void printMemQueue(struct memQueue *q)
+{
+    struct Pair *p = q->front;
+    while (p != NULL)
+    {
+        printf("start: %d, end: %d\n", p->start, p->end);
+        printf("full: %d\n", p->full);
+        p = p->next;
+    }
+};
+
 struct Process
 {
     int id;
@@ -82,11 +143,15 @@ struct Process
     int startTime;
     int finishTime;
     int remainingTime;
+    int memSize;
+    int actualMemSize;
+    int memStart;
+    int memEnd;
     enum ProccessState state;
     struct Process *next;
 };
 
-struct Process *createProcess(int id, int priority, int runTime, int arrivalTime)
+struct Process *createProcess(int id, int priority, int runTime, int arrivalTime, int memSize)
 {
     struct Process *p = (struct Process *)malloc(sizeof(struct Process));
     p->id = id;
@@ -98,7 +163,24 @@ struct Process *createProcess(int id, int priority, int runTime, int arrivalTime
     p->state = ARRIVED;
     p->next = NULL;
     p->pid = -1;
+    p->memSize = memSize;
+    for (int i = 0; i < 10; i++)
+    {
+        int temp = 1;
+        for (int j = 0; j < i; j++)
+        {
+            temp = temp * 2;
+        }
 
+        if (temp >= memSize)
+        {
+            p->actualMemSize = temp;
+            break;
+        }
+    }
+    // p->actualMemSize = pow(2, ceil(log(memSize)/log(2)));
+    p->memStart = -1;
+    p->memEnd = -1;
     return p;
 };
 
